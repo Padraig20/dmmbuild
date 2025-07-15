@@ -1,0 +1,6 @@
+easel
+.vscode
+*.hmm
+*.sto
+dmmbuild
+*.o
