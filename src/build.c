@@ -213,8 +213,9 @@ matassign2hmm(ESL_MSA *msa, int *matassign, F4_HMM **ret_hmm, F4_TRACE ***opt_tr
 
   for (idx = 0; idx < msa->nseq; idx++) {
     if ((status = letter_probs_count(hmm->M, msa->ax[idx], msa->wgt[idx], letter_probs, background_probs)) != eslOK) goto ERROR;
-    if ((status = letter_probs_normalize(hmm->M, msa->abc->K, letter_probs, background_probs))             != eslOK) goto ERROR;
   }
+
+  if ((status = letter_probs_normalize(hmm->M, msa->abc->K, letter_probs, background_probs))             != eslOK) goto ERROR;
 
   for (idx = 0; idx < msa->nseq; idx++) {
     if ((status = f4_trace_Estimate(hmm, msa->ax[idx], msa->wgt[idx], tr[idx], letter_probs, background_probs)) != eslOK) goto ERROR;
