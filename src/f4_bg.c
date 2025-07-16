@@ -6,8 +6,6 @@
  *     3. Standard iid null model ("null1").
  *     4. Filter null model. 
  * 
- * TODO:
- * So far I only needed create and destroy... delete other functions if not necessary.
  */
 
 #include <string.h>
@@ -62,37 +60,6 @@ f4_bg_Create(const ESL_ALPHABET *abc)
   bg->p1    = 350./351.;
   bg->omega = 1./256.;
   bg->abc   = abc;
-  return bg;
-
- ERROR:
-  f4_bg_Destroy(bg);
-  return NULL;
-}
-
-
-/* Function:  f4_bg_CreateUniform()
- * Synopsis:  Creates background model with uniform freqs.
- *
- * Purpose:   Creates a background model for alphabet <abc>
- *            with uniform residue frequencies.
- */
-F4_BG *
-f4_bg_CreateUniform(const ESL_ALPHABET *abc)
-{
-  F4_BG *bg = NULL;
-  int    status;
-
-  ESL_ALLOC(bg, sizeof(F4_BG));
-  bg->f     = NULL;
-  bg->fhmm  = NULL;
-
-  ESL_ALLOC(bg->f,     sizeof(float) * abc->K);
-  if ((bg->fhmm = esl_hmm_Create(abc, 2)) == NULL) goto ERROR;
-
-  esl_vec_FSet(bg->f, abc->K, 1. / (float) abc->K);
-  bg->p1    = 350./351.;
-  bg->omega = 1./256.;
-  bg->abc = (ESL_ALPHABET *) abc; /* safe: we're just keeping a reference */
   return bg;
 
  ERROR:

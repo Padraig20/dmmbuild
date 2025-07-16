@@ -69,30 +69,6 @@ f4_Fail(char *format, ...)
   exit(1);
 }
 
-/* Function:  f4_alidisplay_EncodePostProb()
- * Synopsis:  Convert a posterior probability to a char code.
- *
- * Purpose:   Convert the posterior probability <p> to
- *            a character code suitable for Stockholm format
- *            <#=GC PP_cons> and <#=GR seqname PP> annotation
- *            lines. DUMMER uses the same codes in alignment
- *            output.
- *            
- *            Characters <0-9*> are used; $0.0 \leq p < 0.05$
- *            is coded as 0, $0.05 \leq p < 0.15$ is coded as
- *            1, ... and so on ..., $0.85 \leq p < 0.95$ is
- *            coded as 9, and $0.95 \leq p \leq 1.0$ is coded
- *            as '*'.
- *
- * Returns:   the encoded character.
- */
-char
-f4_alidisplay_EncodePostProb(float p)
-{
-  return (p + 0.05 >= 1.0) ? '*' :  (char) ((p + 0.05) * 10.0) + '0';
-}
-
-
 /* Function:  f4_AminoFrequencies()
  * Incept:    SRE, Fri Jan 12 13:46:41 2007 [Janelia]
  *

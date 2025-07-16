@@ -28,7 +28,7 @@ eweight_target_f(double Neff, void *params, double *ret_fx)
   f4_hmm_CopyParameters(p->hmm, p->h2);
   f4_hmm_Scale(p->h2, Neff / (double) p->h2->nseq);
   f4_ParameterEstimation(p->h2, p->pri);
-  *ret_fx = f4_MeanMatchRelativeEntropy(p->h2, p->bg) - p->etarget; //TODO
+  *ret_fx = f4_MeanMatchRelativeEntropy(p->h2, p->bg) - p->etarget;
   return eslOK;
 }
 

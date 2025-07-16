@@ -87,7 +87,6 @@ enum f4_offsets_e  { f4_MOFFSET = 0, f4_FOFFSET = 1, f4_POFFSET = 2 };
 extern void f4_banner(FILE *fp, const char *progname, char *banner);
 extern void f4_Die(char *format, ...);
 extern void f4_Fail(char *format, ...);
-extern char f4_alidisplay_EncodePostProb(float p);
 extern int f4_AminoFrequencies(float *f);
 
 /*****************************************************************
@@ -261,7 +260,7 @@ typedef struct f4_bg_s {
 } F4_BG;
 
 /*****************************************************************
- * 2. F4_PRIOR: mixture Dirichlet prior for profile HMMs
+ * 4. F4_PRIOR: mixture Dirichlet prior for profile HMMs
  *****************************************************************/
 
 typedef struct f4_prior_s {
@@ -276,7 +275,7 @@ typedef struct f4_prior_s {
 } F4_PRIOR;
 
 /*****************************************************************
- * 3. F4_BUILDER: pipeline for new HMM construction
+ * 5. F4_BUILDER: pipeline for new HMM construction
  *****************************************************************/
 
 #define f4_DEFAULT_WINDOW_BETA  1e-7
@@ -322,8 +321,6 @@ typedef struct f4_builder_s {
   /* Optional: information used for parameterizing single sequence queries                         */
   ESL_SCOREMATRIX     *S;		 /* residue score matrix                                   */
   ESL_DMATRIX         *Q;	         /* Q->mx[a][b] = P(b|a) residue probabilities             */
-  double               popen;         	 /* gap open probability                                   */
-  double               pextend;          /* gap extend probability                                 */
 
   double               w_beta;    /*beta value used to compute W (window length)   */
   int                  w_len;     /*W (window length)  explicitly set */
@@ -334,7 +331,7 @@ typedef struct f4_builder_s {
 
 
 /*****************************************************************
- * 4. F4_TRACE:  a traceback (alignment of seq to profile).
+ * 6. F4_TRACE:  a traceback (alignment of seq to profile).
  *****************************************************************/
 
 /* Traceback structure for alignment of a model to a sequence.
@@ -410,293 +407,7 @@ typedef struct f4_trace_s {
 } F4_TRACE;
 
 /*****************************************************************
- * 5. F4_PROFILE: a scoring profile, and its implicit model.
- *****************************************************************/
-
-/* Indices for special state types in the length model, gm->xsc[x][]
- */
-enum f4p_xstates_e { 
-  f4P_E = 0,
-  f4P_N = 1,
-  f4P_J = 2,
-  f4P_C = 3
-};
-#define f4P_NXSTATES 4
-
-/* Indices for transitions from the length modeling scores gm->xsc[][x]
- */
-enum f4p_xtransitions_e {
-  f4P_LOOP = 0,
-  f4P_MOVE = 1
-};
-#define f4P_NXTRANS 2
-
-/* Indices for transition scores gm->tsc[k][] */
-/* order is optimized for dynamic programming */
-enum f4p_tsc_e {
-  f4P_MM = 0, 
-  f4P_IM = 1, 
-  f4P_DM = 2, 
-  f4P_BM = 3, 
-  f4P_MD = 4, 
-  f4P_DD = 5, 
-  f4P_MI = 6, 
-  f4P_II = 7,
-  f4P_ID = 8, /* Add this for f4-HMM */
-  f4P_DI = 9, /* Add this for f4-HMM */
-};
-#define f4P_NTRANS 8
-
-/* Indices for residue emission score vectors
- */
-enum f4p_rsc_e {
-  f4P_MSC = 0, 
-  f4P_ISC = 1
-};
-#define f4P_NR 2
-
-/* Accessing transition, emission scores */
-/* _BM is specially stored off-by-one: [k-1][f4P_BM] is score for entering at Mk */
-#define f4P_TSC(gm, k, s) ((gm)->tsc[(k) * f4P_NTRANS + (s)])
-#define f4P_MSC(gm, k, x) ((gm)->rsc[x][(k) * f4P_NR + f4P_MSC])
-#define f4P_ISC(gm, k, x) ((gm)->rsc[x][(k) * f4P_NR + f4P_ISC])
-
-
-typedef struct f4_profile_s {
-  float  *tsc;          /* transitions  [0.1..M-1][0..f4P_NTRANS-1], hand-indexed  */
-  float **rsc;          /* emissions [0..Kp-1][0.1..M][f4P_NR], hand-indexed       */
-  float   xsc[f4P_NXSTATES][f4P_NXTRANS]; /* special transitions [NECJ][LOOP,MOVE] */
-
-  int     mode;        	/* configured algorithm mode (e.g. f4_LOCAL)               */ 
-  int     L;		/* current configured target seq length                    */
-  int     allocM;	/* max # of nodes allocated in this structure              */
-  int     M;		/* number of nodes in the model                            */
-  int     max_length;	/* calculated upper bound on emitted seq length            */
-  float   nj;		/* expected # of uses of J; precalculated from loop config */
-
-  /* Info, most of which is a copy from parent HMM:                                       */
-  char  *name;			/* unique name of model                                   */
-  char  *acc;			/* unique accession of model, or NULL                     */
-  char  *desc;                  /* brief (1-line) description of model, or NULL           */
-  char  *rf;                    /* reference line from alignment 1..M; *rf=0 means unused */
-  char  *mm;                    /* modelmask line           1..M; *ref=0: unused     */
-  char  *cs;                    /* consensus structure line      1..M, *cs=0 means unused */
-  char  *consensus;		/* consensus residues to display in alignments, 1..M      */
-  float  evparam[f4_NEVPARAM]; 	/* parameters for determining E-values, or UNSET          */
-  float  cutoff[f4_NCUTOFFS]; 	/* per-seq/per-domain bit score cutoffs, or UNSET         */
-  float  compo[f4_MAXABET];	/* per-model HMM filter composition, or UNSET             */
-
-  /* Disk offset information for hmmpfam's fast model retrieval                           */
-  off_t  offs[f4_NOFFSETS];     /* f4_{MFP}OFFSET, or -1                                  */
-
-  off_t  roff;                  /* record offset (start of record); -1 if none            */
-  off_t  eoff;                  /* offset to last byte of record; -1 if unknown           */
-
-  const ESL_ALPHABET *abc;	/* copy of pointer to appropriate alphabet                */
-} F4_PROFILE;
-
-/*****************************************************************
- * 6. SSE implementation of MSV, Viterbi, and Forward routines.
- * TODO this will need to be changed to include the DI and ID transitions.
- *****************************************************************/
-
-#define f4O_NXSTATES  4    /* special states stored: ENJC                       */
-#define f4O_NXTRANS   2         /* special states all have 2 transitions: move, loop */
-#define f4O_NTRANS    8    /* 7 core transitions + BMk entry                    */
-enum f4o_xstates_e      { f4O_E    = 0, f4O_N    = 1,  f4O_J  = 2,  f4O_C  = 3 };
-enum f4o_xtransitions_e { f4O_MOVE = 0, f4O_LOOP = 1 };
-enum f4o_tsc_e          { f4O_BM   = 0, f4O_MM   = 1,  f4O_IM = 2,  f4O_DM = 3, f4O_MD   = 4, f4O_MI   = 5,  f4O_II = 6,  f4O_DD = 7 };
-
-typedef struct f4_oprofile_s {
-  /* MSVFilter uses scaled, biased uchars: 16x unsigned byte vectors                 */
-  __m128i **rbv;         /* match scores [x][q]: rm, rm[0] are allocated      */
-  __m128i **sbv;         /* match scores for ssvfilter                        */
-  uint8_t   tbm_b;    /* constant B->Mk cost:    scaled log 2/M(M+1)       */
-  uint8_t   tec_b;    /* constant E->C  cost:    scaled log 0.5            */
-  uint8_t   tjb_b;    /* constant NCJ move cost: scaled log 3/(L+3)        */
-  float     scale_b;    /* typically 3 / log2: scores scale to 1/3 bits      */
-  uint8_t   base_b;            /* typically +190: offset of uchar scores            */
-  uint8_t   bias_b;    /* positive bias to emission scores, make them >=0   */
-
-  /* ViterbiFilter uses scaled swords: 8x signed 16-bit integer vectors              */
-  __m128i **rwv;    /* [x][q]: rw, rw[0] are allocated  [Kp][Q8]         */
-  __m128i  *twv;    /* transition score blocks          [8*Q8]           */
-  int16_t   xw[f4O_NXSTATES][f4O_NXTRANS]; /* NECJ state transition costs            */
-  float     scale_w;            /* score units: typically 500 / log(2), 1/500 bits   */
-  int16_t   base_w;             /* offset of sword scores: typically +12000          */
-  int16_t   ddbound_w;    /* threshold precalculated for lazy DD evaluation    */
-  float     ncj_roundoff;  /* missing precision on NN,CC,JJ after rounding      */
-
-  /* Forward, Backward use IEEE754 single-precision floats: 4x vectors               */
-  __m128 **rfv;         /* [x][q]:  rf, rf[0] are allocated [Kp][Q4]         */
-  __m128  *tfv;          /* transition probability blocks    [8*Q4]           */
-  float    xf[f4O_NXSTATES][f4O_NXTRANS]; /* NECJ transition costs                   */
-
-  /* Our actual vector mallocs, before we align the memory                           */
-  __m128i  *rbv_mem;
-  __m128i  *sbv_mem;
-  __m128i  *rwv_mem;
-  __m128i  *twv_mem;
-  __m128   *tfv_mem;
-  __m128   *rfv_mem;
-  
-  /* Disk offset information for hmmpfam's fast model retrieval                      */
-  off_t  offs[f4_NOFFSETS];     /* f4_{MFP}OFFSET, or -1                             */
-
-  /* Disk offset bookkeeping for h3f:                                                */
-  off_t  roff;                  /* record offset (start of record); -1 if none       */
-  off_t  eoff;                  /* offset to last byte of record; -1 if unknown      */
-
-  /* Information, annotation copied from parent profile:                             */
-  char  *name;      /* unique name of model                              */
-  char  *acc;      /* unique accession of model, or NULL                */
-  char  *desc;                  /* brief (1-line) description of model, or NULL      */
-  char  *rf;                    /* reference line           1..M; *ref=0: unused     */
-  char  *mm;                    /* modelmask line           1..M; *ref=0: unused     */
-  char  *cs;                    /* consensus structure line 1..M, *cs=0: unused      */
-  char  *consensus;    /* consensus residues for ali display, 1..M          */
-  float  evparam[f4_NEVPARAM];   /* parameters for determining E-values, or UNSET     */
-  float  cutoff[f4_NCUTOFFS];   /* per-seq/per-dom bit cutoffs, or UNSET             */
-  float  compo[f4_MAXABET];  /* per-model HMM filter composition, or UNSET        */
-  const ESL_ALPHABET *abc;  /* copy of ptr to alphabet information               */
-
-  /* Information about current configuration, size, allocation                       */
-  int    L;      /* current configured target seq length              */
-  int    M;      /* model length                                      */
-  int    max_length;    /* upper bound on emitted sequence length            */
-  int    allocM;    /* maximum model length currently allocated for      */
-  int    allocQ4;    /* f4_NQF(allocM): alloc size for tf, rf             */
-  int    allocQ8;    /* f4_NQW(allocM): alloc size for tw, rw             */
-  int    allocQ16;    /* f4_NQB(allocM): alloc size for rb                 */
-  int    mode;      /* currently must be f4_LOCAL                        */
-  float  nj;      /* expected # of J's: 0 or 1, uni vs. multihit       */
-
-  int    clone;                 /* this optimized profile structure is just a copy   */
-                                /* of another profile structre.  all pointers of     */
-                                /* this structure should not be freed.               */
-} F4_OPROFILE;
-
-/*****************************************************************
- * 7. F4_GMX: a "generic" dynamic programming matrix
- *****************************************************************/
-
-enum f4g_scells_e {
-  f4G_M = 0,
-  f4G_I = 1,
-  f4G_D = 2,
-};
-#define f4G_NSCELLS 3
-
-enum f4g_xcells_e {
-  f4G_E  = 0,
-  f4G_N  = 1,
-  f4G_J  = 2,
-  f4G_B  = 3,
-  f4G_C  = 4
-};
-#define f4G_NXCELLS 5
-
-typedef struct f4_gmx_s {
-  int  M;		/* actual model dimension (model 1..M)    */
-  int  L;		/* actual sequence dimension (seq 1..L)   */
-  
-  int      allocR;      /* current allocated # of rows : L+1 <= validR <= allocR                */
-  int      validR;	/* # of rows actually pointing at DP memory                             */
-  int      allocW;	/* current set row width :  M+1 <= allocW                               */
-  uint64_t ncells;	/* total # of allocated cells in 2D matrix : ncells >= (validR)(allocW) */
-
-  float **dp;           /* logically [0.1..L][0.1..M][0..f4G_NSCELLS-1]; indexed [i][k*f4G_NSCELLS+s] */
-  float  *xmx;          /* logically [0.1..L][0..f4G_NXCELLS-1]; indexed [i*f4G_NXCELLS+s]            */
-
-  float  *dp_mem;
-} F4_GMX;
-
-/* Macros below implement indexing idioms for generic DP routines.
- * They require the following setup, for profile <gm> and matrix <gx>:
- *   float const *tsc = gm->tsc;
- *   float      **dp  = gx->dp;
- *   float       *xmx = gx->xmx;
- * and for each row i (target residue x_i in digital seq <dsq>):
- *   float const *rsc = gm->rsc[dsq[i]];
- */
-#define MMX(i,k) (dp[(i)][(k) * f4G_NSCELLS + f4G_M])
-#define IMX(i,k) (dp[(i)][(k) * f4G_NSCELLS + f4G_I])
-#define DMX(i,k) (dp[(i)][(k) * f4G_NSCELLS + f4G_D])
-#define XMX(i,s) (xmx[(i) * f4G_NXCELLS + (s)])
-
-#define TSC(s,k) (tsc[(k) * f4P_NTRANS + (s)])
-#define MSC(k)   (rsc[(k) * f4P_NR     + f4P_MSC])
-#define ISC(k)   (rsc[(k) * f4P_NR     + f4P_ISC])
-
-/* Flags that control F4_GMX debugging dumps */
-#define f4_HIDE_SPECIALS (1<<0)
-#define f4_SHOW_LOG      (1<<1)
-
-/*****************************************************************
- * 8. F4_OMX: a one-row dynamic programming matrix
- *****************************************************************/
-
-enum f4x_scells_e { f4X_M = 0, f4X_D = 1, f4X_I = 2 };
-#define f4X_NSCELLS 3
-
-/* Besides ENJBC states, we may also store a rescaling factor on each row  */
-enum f4x_xcells_e { f4X_E = 0, f4X_N = 1, f4X_J = 2, f4X_B = 3, f4X_C = 4, f4X_SCALE = 5 }; 
-#define f4X_NXCELLS 6
-
-/* 
- * 
- * dpf[][] 
- *    to access M(i,k) for i=0,1..L; k=1..M:  dpf[i][(k-1)/4 + f4X_M].element[(k-1)%4]
- * 
- * xmx[] arrays for individual special states:
- *    xmx[ENJBC] = [0 1 2 3][4 5 6 7]..[L-2 L-1 L x]     XRQ >= (L/4)+1
- *    to access B[i] for example, for i=0..L:   xmx[B][i/4].x[i%4]  (quad i/4; element i%4).
- */  
-typedef struct f4_omx_s {
-  int       M;      /* current actual model dimension                              */
-  int       L;      /* current actual sequence dimension                           */
-
-  /* The main dynamic programming matrix for M,D,I states                                      */
-  __m128  **dpf;    /* striped DP matrix for [0,1..L][0..Q-1][MDI], float vectors  */
-  __m128i **dpw;    /* striped DP matrix for [0,1..L][0..Q-1][MDI], sword vectors  */
-  __m128i **dpb;    /* striped DP matrix for [0,1..L][0..Q-1] uchar vectors        */
-  void     *dp_mem;    /* DP memory shared by <dpb>, <dpw>, <dpf>                     */
-  int       allocR;    /* current allocated # rows in dp{uf}. allocR >= validR >= L+1 */
-  int       validR;    /* current # of rows actually pointing at DP memory            */
-  int       allocQ4;    /* current set row width in <dpf> quads:   allocQ4*4 >= M      */
-  int       allocQ8;    /* current set row width in <dpw> octets:  allocQ8*8 >= M      */
-  int       allocQ16;   /* current set row width in <dpb> 16-mers: allocQ16*16 >= M    */
-  int64_t   ncells;     /* current allocation size of <dp_mem>, in accessible cells    */
-
-  /* The X states (for full,parser; or NULL, for scorer)                                       */
-  float    *xmx;          /* logically [0.1..L][ENJBCS]; indexed [i*f4X_NXCELLS+s]       */
-  void     *x_mem;    /* X memory before 16-byte alignment                           */
-  int       allocXR;    /* # of rows allocated in each xmx[] array; allocXR >= L+1     */
-  float     totscale;    /* log of the product of all scale factors (0.0 if unscaled)   */
-  int       has_own_scales;  /* TRUE to use own scale factors; FALSE if scales provided     */
-
-  /* Parsers,scorers only hold a row at a time, so to get them to dump full matrix, it
-   * must be done during a DP calculation, after each row is calculated 
-   */
-  int     debugging;    /* TRUE if we're in debugging mode                             */
-  FILE   *dfp;      /* output stream for diagnostics                               */
-} F4_OMX;
-
-/* ?MXo(q) access macros work for either uchar or float, so long as you
- * init your "dp" to point to the appropriate array.
- */
-#define MMXo(q)   (dp[(q) * f4X_NSCELLS + f4X_M])
-#define DMXo(q)   (dp[(q) * f4X_NSCELLS + f4X_D])
-#define IMXo(q)   (dp[(q) * f4X_NSCELLS + f4X_I])
-#define XMXo(i,s) (xmx[(i) * f4X_NXCELLS + s])
-
-/* and this version works with a ptr to the approp DP row. */
-#define MMO(dp,q) ((dp)[(q) * f4X_NSCELLS + f4X_M])
-#define DMO(dp,q) ((dp)[(q) * f4X_NSCELLS + f4X_D])
-#define IMO(dp,q) ((dp)[(q) * f4X_NSCELLS + f4X_I])
-
-/*****************************************************************
- * 9. Routines in DUMMER's exposed API.
+ * 7. Routines in DUMMER's exposed API.
  *****************************************************************/
 
 /* dmmbuild.c */
@@ -704,7 +415,6 @@ extern double f4_MeanMatchRelativeEntropy(const F4_HMM *hmm, const F4_BG *bg);
 
 /* f4_bg.c */
 extern F4_BG *f4_bg_Create(const ESL_ALPHABET *abc);
-extern F4_BG *f4_bg_CreateUniform(const ESL_ALPHABET *abc);
 extern F4_BG *f4_bg_Clone(const F4_BG *bg);
 extern int    f4_bg_Dump(FILE *ofp, const F4_BG *bg);
 extern void   f4_bg_Destroy(F4_BG *bg);
@@ -719,12 +429,9 @@ extern int    f4_bg_FilterScore(F4_BG *bg, const ESL_DSQ *dsq, int L, float *ret
 
 /* f4_builder.c */
 extern F4_BUILDER *f4_builder_Create(const ESL_GETOPTS *go, const ESL_ALPHABET *abc);
-extern int         f4_builder_LoadScoreSystem(F4_BUILDER *bld, const char *matrix,                  double popen, double pextend, F4_BG *bg);
-extern int         f4_builder_SetScoreSystem (F4_BUILDER *bld, const char *mxfile, const char *env, double popen, double pextend, F4_BG *bg);
 extern void        f4_builder_Destroy(F4_BUILDER *bld);
 
-extern int f4_Builder      (F4_BUILDER *bld, ESL_MSA *msa, F4_BG *bg, F4_HMM **opt_hmm, F4_TRACE ***opt_trarr, F4_PROFILE **opt_gm, F4_OPROFILE **opt_om, ESL_MSA **opt_postmsa);
-extern int f4_SingleBuilder(F4_BUILDER *bld, ESL_SQ *sq,   F4_BG *bg, F4_HMM **opt_hmm, F4_TRACE  **opt_tr,    F4_PROFILE **opt_gm, F4_OPROFILE **opt_om); 
+extern int f4_Builder      (F4_BUILDER *bld, ESL_MSA *msa, F4_BG *bg, F4_HMM **opt_hmm, F4_TRACE ***opt_trarr);
 extern int f4_Builder_MaxLength      (F4_HMM *hmm, double emit_thresh);
 
 /* f4_hmmfile.c */
@@ -782,10 +489,7 @@ extern int  f4_trace_GetDomainCoords  (const F4_TRACE *tr, int which, int *ret_i
 				       int *ret_k1, int *ret_k2);
 
 extern int   f4_trace_Validate(const F4_TRACE *tr, const ESL_ALPHABET *abc, const ESL_DSQ *dsq, char *errbuf);
-extern int   f4_trace_Dump(FILE *fp, const F4_TRACE *tr, const F4_PROFILE *gm, const ESL_DSQ *dsq);
 extern int   f4_trace_Compare(F4_TRACE *tr1, F4_TRACE *tr2, float pptol);
-extern int   f4_trace_Score(F4_TRACE *tr, ESL_DSQ *dsq, F4_PROFILE *gm, float *ret_sc);
-extern int   f4_trace_SetPP(F4_TRACE *tr, const F4_GMX *pp);
 extern float f4_trace_GetExpectedAccuracy(const F4_TRACE *tr);
 
 extern int  f4_trace_Append(F4_TRACE *tr, char st, int k, int i);
@@ -813,48 +517,6 @@ extern int f4_Seqmodel(const ESL_ALPHABET *abc, ESL_DSQ *dsq, int M, char *name,
 extern int f4_EntropyWeight(const F4_HMM *hmm, const F4_BG *bg, const F4_PRIOR *pri, double infotarget, double *ret_Neff);
 extern int f4_EntropyWeight_exp(const F4_HMM *hmm, const F4_BG *bg, const F4_PRIOR *pri, double etarget, double *ret_exp);
 
-/* evalues.c */
-extern int f4_Calibrate(F4_HMM *hmm, F4_BUILDER *cfg_b, ESL_RANDOMNESS **byp_rng, F4_BG **byp_bg, F4_PROFILE **byp_gm, F4_OPROFILE **byp_om);
-extern int f4_Lambda(F4_HMM *hmm, F4_BG *bg, double *ret_lambda);
-extern int f4_MSVMu     (ESL_RANDOMNESS *r, F4_OPROFILE *om, F4_BG *bg, int L, int N, double lambda,               double *ret_mmu);
-extern int f4_ViterbiMu (ESL_RANDOMNESS *r, F4_OPROFILE *om, F4_BG *bg, int L, int N, double lambda,               double *ret_vmu);
-extern int f4_Tau       (ESL_RANDOMNESS *r, F4_OPROFILE *om, F4_BG *bg, int L, int N, double lambda, double tailp, double *ret_tau);
-
-/* tracealign.c */
-extern int f4_tracealign_MSA(const ESL_MSA *premsa, F4_TRACE **tr, int M, int optflags, ESL_MSA **ret_postmsa);
-
 /* build.c */
 extern int f4_Fastmodelmaker(ESL_MSA *msa, float symfrac, F4_BUILDER *bld, F4_HMM **ret_hmm, F4_TRACE ***ret_tr);
 
-/* modelconfig.c */
-extern int f4_ProfileConfig(const F4_HMM *hmm, const F4_BG *bg, F4_PROFILE *gm, int L, int mode);
-extern int f4_ReconfigLength(F4_PROFILE *gm, int L);
-
-/* f4_oprofile.c */
-extern void f4_oprofile_Destroy(F4_OPROFILE *om);
-extern F4_OPROFILE * f4_oprofile_Create(int allocM, const ESL_ALPHABET *abc);
-extern int f4_oprofile_Convert(const F4_PROFILE *gm, F4_OPROFILE *om);
-
-/* f4_profile.c */
-extern void f4_profile_Destroy(F4_PROFILE *gm);
-extern F4_PROFILE * f4_profile_Create(int allocM, const ESL_ALPHABET *abc);
-extern int f4_oprofile_ReconfigLength(F4_OPROFILE *om, int L);
-extern int f4_profile_GetT(const F4_PROFILE *gm, char st1, int k1, char st2, int k2, float *ret_tsc);
-extern int f4_profile_IsLocal(const F4_PROFILE *gm);
-extern int f4_profile_IsMultihit(const F4_PROFILE *gm);
-
-/* vitfilter.c */
-extern int f4_ViterbiFilter(const ESL_DSQ *dsq, int L, const F4_OPROFILE *om, F4_OMX *ox, float *ret_sc);
-
-/* msvfilter.c */
-extern int f4_MSVFilter(const ESL_DSQ *dsq, int L, const F4_OPROFILE *om, F4_OMX *ox, float *ret_sc);
-
-/* ssvfilter.c */
-extern int f4_SSVFilter(const ESL_DSQ *dsq, int L, const F4_OPROFILE *om, float *ret_sc);
-
-/* f4_omx.c */
-extern F4_OMX * f4_omx_Create(int allocM, int allocL, int allocXL);
-extern void f4_omx_Destroy(F4_OMX *ox);
-
-/* fwdbck.c */
-extern int f4_ForwardParser(const ESL_DSQ *dsq, int L, const F4_OPROFILE *om, F4_OMX *ox, float *opt_sc);

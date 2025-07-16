@@ -19,9 +19,6 @@ struct cfg_s {
   char         *hmmfile;        /* file to write HMM to                    */
   FILE         *hmmfp;          /* HMM output file handle                  */
 
-  char         *postmsafile;	/* optional file to resave annotated, modified MSAs to  */
-  FILE         *postmsafp;	/* open <postmsafile>, or NULL */
-
   int           nali;		/* which # alignment this is in file (only valid in serial mode)   */
   int           nnamed;		/* number of alignments that had their own names */
 
@@ -85,11 +82,11 @@ static ESL_OPTIONS options[] = {
   { "--plaplace",eslARG_NONE,  FALSE,  NULL, NULL,       NULL,  NULL,   "--pnone", "use a Laplace +1 prior",                               9 },
 
   /* Single sequence methods */
-  { "--singlemx", eslARG_NONE,   FALSE, NULL,   NULL,   NULL,  NULL,           "",   "use substitution score matrix for single-sequence inputs",     10 },
-  { "--mx",     eslARG_STRING, "BLOSUM62", NULL, NULL,   NULL, NULL,   "--mxfile",   "substitution score matrix (built-in matrices, with --singlemx)", 10 },
-  { "--mxfile", eslARG_INFILE,     NULL, NULL,   NULL,   NULL, NULL,       "--mx",   "read substitution score matrix from file <f> (with --singlemx)", 10 },
-  { "--popen",    eslARG_REAL,  NULL,  NULL,"0<=x<0.5",NULL, NULL,           "",   "force gap open prob. (w/ --singlemx, aa default 0.02, nt 0.031)",  10 },
-  { "--pextend",  eslARG_REAL,  NULL,  NULL, "0<=x<1", NULL, NULL,           "",   "force gap extend prob. (w/ --singlemx, aa default 0.4, nt 0.75)",  10 },
+  //{ "--singlemx", eslARG_NONE,   FALSE, NULL,   NULL,   NULL,  NULL,           "",   "use substitution score matrix for single-sequence inputs",     10 },
+  //{ "--mx",     eslARG_STRING, "BLOSUM62", NULL, NULL,   NULL, NULL,   "--mxfile",   "substitution score matrix (built-in matrices, with --singlemx)", 10 },
+  //{ "--mxfile", eslARG_INFILE,     NULL, NULL,   NULL,   NULL, NULL,       "--mx",   "read substitution score matrix from file <f> (with --singlemx)", 10 },
+  //{ "--popen",    eslARG_REAL,  NULL,  NULL,"0<=x<0.5",NULL, NULL,           "",   "force gap open prob. (w/ --singlemx, aa default 0.02, nt 0.031)",  10 },
+  //{ "--pextend",  eslARG_REAL,  NULL,  NULL, "0<=x<1", NULL, NULL,           "",   "force gap extend prob. (w/ --singlemx, aa default 0.4, nt 0.75)",  10 },
 
   /* Control of E-value calibration */
   { "--EmL",     eslARG_INT,    "200", NULL,"n>0",       NULL,    NULL,      NULL, "length of sequences for MSV Gumbel mu fit",            6 },   
@@ -243,11 +240,11 @@ output_header(const ESL_GETOPTS *go, const struct cfg_s *cfg)
   if (esl_opt_IsUsed(go, "--EfL")        && fprintf(cfg->ofp, "# seq length for Fwd exp tau fit:   %d\n",        esl_opt_GetInteger(go, "--EfL"))     < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
   if (esl_opt_IsUsed(go, "--EfN")        && fprintf(cfg->ofp, "# seq number for Fwd exp tau fit:   %d\n",        esl_opt_GetInteger(go, "--EfN"))     < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
   if (esl_opt_IsUsed(go, "--Eft")        && fprintf(cfg->ofp, "# tail mass for Fwd exp tau fit:    %f\n",        esl_opt_GetReal(go, "--Eft"))        < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
-  if (esl_opt_IsUsed(go, "--singlemx")   && fprintf(cfg->ofp, "# use score matrix for 1-seq MSAs:  on\n")                                              < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
-  if (esl_opt_IsUsed(go, "--popen")      && fprintf(cfg->ofp, "# gap open probability:             %f\n",         esl_opt_GetReal   (go, "--popen"))   < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
-  if (esl_opt_IsUsed(go, "--pextend")    && fprintf(cfg->ofp, "# gap extend probability:           %f\n",         esl_opt_GetReal   (go, "--pextend")) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
-  if (esl_opt_IsUsed(go, "--mx")         && fprintf(cfg->ofp, "# subst score matrix (built-in):    %s\n",         esl_opt_GetString (go, "--mx"))      < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
-  if (esl_opt_IsUsed(go, "--mxfile")     && fprintf(cfg->ofp, "# subst score matrix (file):        %s\n",         esl_opt_GetString (go, "--mxfile"))  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
+  //if (esl_opt_IsUsed(go, "--singlemx")   && fprintf(cfg->ofp, "# use score matrix for 1-seq MSAs:  on\n")                                              < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
+  //if (esl_opt_IsUsed(go, "--popen")      && fprintf(cfg->ofp, "# gap open probability:             %f\n",         esl_opt_GetReal   (go, "--popen"))   < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
+  //if (esl_opt_IsUsed(go, "--pextend")    && fprintf(cfg->ofp, "# gap extend probability:           %f\n",         esl_opt_GetReal   (go, "--pextend")) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
+  //if (esl_opt_IsUsed(go, "--mx")         && fprintf(cfg->ofp, "# subst score matrix (built-in):    %s\n",         esl_opt_GetString (go, "--mx"))      < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
+  //if (esl_opt_IsUsed(go, "--mxfile")     && fprintf(cfg->ofp, "# subst score matrix (file):        %s\n",         esl_opt_GetString (go, "--mxfile"))  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
   if (esl_opt_IsUsed(go, "--maxinsertlen")  && fprintf(cfg->ofp, "# max insert length:                %d\n",         esl_opt_GetInteger (go, "--maxinsertlen"))  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
 
 
@@ -264,7 +261,7 @@ output_header(const ESL_GETOPTS *go, const struct cfg_s *cfg)
 }
 
 static int
-output_result(const struct cfg_s *cfg, char *errbuf, int msaidx, ESL_MSA *msa, F4_HMM *hmm, ESL_MSA *postmsa, double entropy)
+output_result(const struct cfg_s *cfg, char *errbuf, int msaidx, ESL_MSA *msa, F4_HMM *hmm, double entropy)
 {
   int status;
 
@@ -311,10 +308,6 @@ output_result(const struct cfg_s *cfg, char *errbuf, int msaidx, ESL_MSA *msa, F
       ESL_EXCEPTION_SYS(eslEWRITE, "output_result: write failed");
   }
 
-  if (cfg->postmsafp != NULL && postmsa != NULL) {
-    esl_msafile_Write(cfg->postmsafp, postmsa, eslMSAFILE_STOCKHOLM);
-  }
-
   return eslOK;
 }
 
@@ -342,35 +335,6 @@ f4_MeanMatchRelativeEntropy(const F4_HMM *hmm, const F4_BG *bg)
     KL += esl_vec_FRelEntropy(hmm->mat[k], bg->f, hmm->abc->K);
   KL /= (double) hmm->M;
   return KL;
-}
-
-void
-apply_fixed_gap_params(F4_HMM *hmm, double popen, double pextend){
-  int k;
-  for (k = 0; k <= hmm->M; k++)
-  {
-     if (popen != -1) {
-        hmm->t[k][f4H_MM] = 1.0 - 2 * popen;
-        hmm->t[k][f4H_MI] = popen;
-        hmm->t[k][f4H_MD] = popen;
-     }
-     if (pextend != -1) {
-        hmm->t[k][f4H_IM] = 1.0 - pextend;
-        hmm->t[k][f4H_II] = pextend;
-        hmm->t[k][f4H_DM] = 1.0 - pextend;
-        hmm->t[k][f4H_DD] = pextend;
-     }
-  }
-
-  /* Deal w/ special stuff at node M, overwriting a little of what we
-   * just did.
-   */
-  if (popen != -1) {
-    hmm->t[hmm->M][f4H_MM] = 1.0 - popen;
-  }
-  hmm->t[hmm->M][f4H_MD] = 0.;
-  hmm->t[hmm->M][f4H_DM] = 1.0;
-  hmm->t[hmm->M][f4H_DD] = 0.;
 }
 
 /* set_msa_name() 
@@ -441,9 +405,6 @@ serial_loop(WORKER_INFO *info, struct cfg_s *cfg, const ESL_GETOPTS *go)
 {
   F4_BUILDER *bld         = NULL;
   ESL_MSA    *msa         = NULL;
-  ESL_SQ     *sq          = NULL;
-  ESL_MSA    *postmsa     = NULL;
-  ESL_MSA   **postmsa_ptr = (cfg->postmsafile != NULL) ? &postmsa : NULL;
   F4_HMM     *hmm         = NULL;
   char        errmsg[eslERRBUFSIZE];
   int         status;
@@ -458,28 +419,14 @@ serial_loop(WORKER_INFO *info, struct cfg_s *cfg, const ESL_GETOPTS *go)
 
       if ((status = set_msa_name(cfg, errmsg, msa)) != eslOK) f4_Fail("%s\n", errmsg); /* cfg->nnamed gets incremented in this call */
 
-
       /*         bg   new-HMM trarr gm   om  */
-      if ( msa->nseq == 1 && esl_opt_IsUsed(go, "--singlemx")) {
-        if ((status = esl_sq_FetchFromMSA(msa, 0, &sq)) != eslOK) f4_Fail("build failed: %s", bld->errbuf);
-        if ((status = f4_SingleBuilder(info->bld, sq, info->bg, &hmm, NULL, NULL, NULL)) != eslOK) f4_Fail("build failed: %s", bld->errbuf);
-        esl_sq_Destroy(sq);
-        sq = NULL;
-        hmm->eff_nseq = 1;
-      } else {
-        if ((status = f4_Builder(info->bld, msa, info->bg, &hmm, NULL, NULL, NULL, postmsa_ptr )) != eslOK) f4_Fail("build failed: %s", bld->errbuf);
+      if ((status = f4_Builder(info->bld, msa, info->bg, &hmm, NULL)) != eslOK) f4_Fail("build failed: %s", bld->errbuf);
 
-        //if not --singlemx, but the user set the popen/pextend flags, override the computed gap params now:
-        if (info->bld->popen != -1 || info->bld->pextend != -1) {
-          apply_fixed_gap_params(hmm, info->bld->popen, info->bld->pextend);
-        }
-      }
       entropy = f4_MeanMatchRelativeEntropy(hmm, info->bg);
-      if ((status = output_result(cfg, errmsg, cfg->nali, msa, hmm, postmsa, entropy))         != eslOK) f4_Fail(errmsg);
+      if ((status = output_result(cfg, errmsg, cfg->nali, msa, hmm, entropy))         != eslOK) f4_Fail(errmsg);
 
       f4_hmm_Destroy(hmm);
       esl_msa_Destroy(msa);
-      esl_msa_Destroy(postmsa);
     }
 }
 
@@ -498,8 +445,6 @@ usual_master(const ESL_GETOPTS *go, struct cfg_s *cfg)
   int              ncpus    = 0;
   int              infocnt  = 0;
   WORKER_INFO     *info     = NULL;
-  double           popen;
-  double           pextend;
   int              i;
   int              status;
 
@@ -507,7 +452,6 @@ usual_master(const ESL_GETOPTS *go, struct cfg_s *cfg)
    *   cfg->afp       - open alignment file for input
    *   cfg->abc       - alphabet expected or guessed in ali file
    *   cfg->hmmfp     - open HMM file for output
-   *   cfg->postmsafp - optional open MSA resave file, or NULL
    *   cfp->ofp       - optional open output file, or stdout
    */
   if      (esl_opt_GetBoolean(go, "--amino"))   cfg->abc = esl_alphabet_Create(eslAMINO);
@@ -528,19 +472,12 @@ usual_master(const ESL_GETOPTS *go, struct cfg_s *cfg)
     } 
   else cfg->ofp = stdout;
 
-  if (cfg->postmsafile) 
-    {
-      cfg->postmsafp = fopen(cfg->postmsafile, "w");
-      if (cfg->postmsafp == NULL) f4_Fail("Failed to resave MSA file %s", cfg->postmsafile);
-    }
-  else cfg->postmsafp = NULL;
-
 
   /* Looks like the i/o is set up successfully...
    * Initial output to the user
    */
   output_header(go, cfg);                                  /* cheery output header                                */
-  output_result(cfg, NULL, 0, NULL, NULL, NULL, 0.0);	   /* tabular results header (with no args, special-case) */
+  output_result(cfg, NULL, 0, NULL, NULL, 0.0);	   /* tabular results header (with no args, special-case) */
 
   infocnt = (ncpus == 0) ? 1 : ncpus;
   ESL_ALLOC(info, (ptrdiff_t) sizeof(*info) * infocnt);
@@ -556,34 +493,6 @@ usual_master(const ESL_GETOPTS *go, struct cfg_s *cfg)
 
       if ( esl_opt_IsOn(go, "--maxinsertlen") )
         info[i].bld->max_insert_len    = esl_opt_GetInteger(go, "--maxinsertlen");
-
-      if ( cfg->abc->type == eslDNA || cfg->abc->type == eslRNA ) {
-        //If user hasn't overridden defaults, assign the nucleotide defaults
-        popen   = esl_opt_IsUsed(go, "--popen")   ? esl_opt_GetReal(go, "--popen")   : 0.03125;
-        pextend = esl_opt_IsUsed(go, "--pextend") ? esl_opt_GetReal(go, "--pextend") : 0.75;
-      } else {
-        //protein defaults
-        popen   = esl_opt_IsUsed(go, "--popen")   ? esl_opt_GetReal(go, "--popen")   : 0.02;
-        pextend = esl_opt_IsUsed(go, "--pextend") ? esl_opt_GetReal(go, "--pextend") : 0.4;
-      }
-
-      /* Default matrix is stored in the --mx option, so it's always IsOn().
-       * Check --mxfile first; then go to the --mx option and the default.
-       */
-      if ( esl_opt_IsUsed(go, "--singlemx") ) {
-        char  *mx      = esl_opt_GetString(go, "--mx");
-
-        if ( cfg->abc->type == eslDNA || cfg->abc->type == eslRNA ) {
-          //If user hasn't overridden defaults, assign the nucleotide defaults
-          if ( !esl_opt_IsUsed(go, "--mx") )       mx      = "DNA1";
-        }
-        if (esl_opt_IsOn(go, "--mxfile")) status = f4_builder_SetScoreSystem (info[i].bld, esl_opt_GetString(go, "--mxfile"), NULL, popen, pextend, info[i].bg);
-        else                              status = f4_builder_LoadScoreSystem(info[i].bld, mx,                                      popen, pextend, info[i].bg);
-        if (status != eslOK) f4_Fail("Failed to set single query seq score system:\n%s\n", info[i].bld->errbuf);
-      } else {
-        if (esl_opt_IsUsed(go, "--popen") )  info[i].bld->popen   = popen;
-        if (esl_opt_IsUsed(go, "--pextend")) info[i].bld->pextend = pextend;
-      }
 
       /* special arguments for hmmbuild */
       info[i].bld->w_len      = (go != NULL && esl_opt_IsOn (go, "--w_length")) ?  esl_opt_GetInteger(go, "--w_length"): -1;
@@ -633,8 +542,6 @@ main(int argc, char **argv)
   cfg.afp         = NULL;	           
   cfg.abc         = NULL;	           
   cfg.hmmfp       = NULL;	           
-  cfg.postmsafile = esl_opt_GetString(go, "-O"); /* NULL by default */
-  cfg.postmsafp         = NULL;
 
   cfg.nali       = 0;		           /* this counter is incremented in masters */
   cfg.nnamed     = 0;		           /* 0 or 1 if a single MSA; == nali if multiple MSAs */
