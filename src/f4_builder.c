@@ -263,7 +263,6 @@ f4_Builder(F4_BUILDER *bld, ESL_MSA *msa, F4_BG *bg, F4_HMM **opt_hmm, F4_TRACE 
   return status;
 }
 
-
 /* Function:  f4_Builder_MaxLength()
  *
  * Purpose:  Compute the maximum likely length of an emitted sequence
@@ -392,7 +391,6 @@ f4_Builder_MaxLength (F4_HMM *hmm, double emit_thresh)
 
   hmm->max_length = length_bound;  //default, if it never reaches the target surviving density
 
-
   //    double I[model_len+1][2], M[model_len+1][2], D[model_len+1][2]; //2 columns for each way of ending a subpath
   ESL_ALLOC(I, (model_len+1) * sizeof(double*)); 
   ESL_ALLOC(M, (model_len+1) * sizeof(double*)); 
@@ -484,13 +482,9 @@ f4_Builder_MaxLength (F4_HMM *hmm, double emit_thresh)
 
 /*------------- end, model construction API ---------------------*/
 
-
-
-
 /*****************************************************************
  * 3. Internal functions
  *****************************************************************/
-
 
 /* validate_msa:
  * SRE, Thu Dec  3 16:10:31 2009 [J5/119; bug #h70 fix]
@@ -523,7 +517,6 @@ validate_msa(F4_BUILDER *bld, ESL_MSA *msa)
   return eslOK;
 }
 
-
 /* set_relative_weights():
  * Set msa->wgt vector, using user's choice of relative weighting algorithm.
  */
@@ -546,7 +539,6 @@ relative_weights(F4_BUILDER *bld, ESL_MSA *msa)
   esl_msaweight_cfg_Destroy(cfg);
   return eslOK;
 }
-
 
 /* build_model():
  * Given <msa>, choose HMM architecture, collect counts;
@@ -572,8 +564,6 @@ build_model(F4_BUILDER *bld, ESL_MSA *msa, F4_HMM **ret_hmm, F4_TRACE ***opt_tr)
  ERROR:
   return status;
 }
-
-
 
 /* effective_seqnumber()
  *
@@ -650,7 +640,6 @@ effective_seqnumber(F4_BUILDER *bld, const ESL_MSA *msa, F4_HMM *hmm, const F4_B
   return status;
 }
 
-
 /* parameterize()
  * Converts counts to probability parameters.
  */
@@ -659,7 +648,6 @@ parameterize(F4_BUILDER *bld, F4_HMM *hmm)
 {
   int status;
 
-  //if ((status = p7_ParameterEstimation(hmm, bld->prior)) != eslOK) ESL_XFAIL(status, bld->errbuf, "parameter estimation failed");
   if ((status = f4_ParameterEstimation(hmm, bld->prior)) != eslOK) ESL_XFAIL(status, bld->errbuf, "parameter estimation failed");
 
   return eslOK;
@@ -667,8 +655,6 @@ parameterize(F4_BUILDER *bld, F4_HMM *hmm)
  ERROR:
   return status;
 }
-
-
 
 /* annotate()
  * Transfer annotation information from MSA to new HMM.
@@ -716,4 +702,3 @@ annotate(F4_BUILDER *bld, const ESL_MSA *msa, F4_HMM *hmm)
 }
 
 /*---------------- end, internal functions ----------------------*/
-

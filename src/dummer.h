@@ -28,9 +28,6 @@
 #include "esl_msaweight.h"      /* ESL_MSAWEIGHT         */
 #include "esl_vectorops.h"      /* ESL_VECTOROPS         */
 
-#include <xmmintrin.h>    /* SSE  */
-#include <emmintrin.h>    /* SSE2 */
-
 /*****************************************************************
  * 0. Configuration & Constants
  *****************************************************************/
@@ -40,25 +37,6 @@
 #define  DUMMER_COPYRIGHT "Copyright (C) 2025 The University of Tokyo."
 #define  DUMMER_LICENSE "Freely distributed under the MIT open source license."
 #define  DUMMER_URL "https://gitlab.com/mcfrith/seq-position-probs"
-
-/* Search modes. */
-#define f4_NO_MODE   0
-#define f4_LOCAL     1		/* multihit local:  "fs" mode   */
-#define f4_GLOCAL    2		/* multihit glocal: "ls" mode   */
-#define f4_UNILOCAL  3		/* unihit local: "sw" mode      */
-#define f4_UNIGLOCAL 4		/* unihit glocal: "s" mode      */
-
-#define f4_IsLocal(mode)  (mode == f4_LOCAL || mode == f4_UNILOCAL)
-#define f4_IsMulti(mode)  (mode == f4_LOCAL || mode == f4_GLOCAL)
-
-/* In calculating Q, the number of vectors we need in a row, we have
- * to make sure there's at least 2, or a striped implementation fails.
- */
-#define f4O_NQB(M)   ( ESL_MAX(2, ((((M)-1) / 16) + 1)))   /* 16 uchars  */
-#define f4O_NQW(M)   ( ESL_MAX(2, ((((M)-1) / 8)  + 1)))   /*  8 words   */
-#define f4O_NQF(M)   ( ESL_MAX(2, ((((M)-1) / 4)  + 1)))   /*  4 floats  */
-
-#define f4O_EXTRA_SB 17 /* see ssvfilter.c (in HMMER repo) for explanation */
 
 /* Relative entropy target defaults:
  * For proteins, hmmbuild's effective sequence number calculation
@@ -72,20 +50,12 @@
 
 enum f4_evparams_e {    f4_MMU  = 0, f4_MLAMBDA = 1,     f4_VMU = 2,  f4_VLAMBDA = 3, f4_FTAU = 4, f4_FLAMBDA = 5 };
 enum f4_cutoffs_e  {     f4_GA1 = 0,     f4_GA2 = 1,     f4_TC1 = 2,      f4_TC2 = 3,  f4_NC1 = 4,     f4_NC2 = 5 };
-enum f4_offsets_e  { f4_MOFFSET = 0, f4_FOFFSET = 1, f4_POFFSET = 2 };
-
-/* Option flags when creating multiple alignments with f4_tracealign_*() */
-#define f4_DEFAULT             0
-#define f4_DIGITIZE            (1<<0)
-#define f4_ALL_CONSENSUS_COLS  (1<<1)
-#define f4_TRIM                (1<<2)
 
 /*****************************************************************
  * 1. Miscellaneous functions
  *****************************************************************/
 
 extern void f4_banner(FILE *fp, const char *progname, char *banner);
-extern void f4_Die(char *format, ...);
 extern void f4_Fail(char *format, ...);
 extern int f4_AminoFrequencies(float *f);
 
@@ -172,7 +142,6 @@ enum f4h_params_e {
  * symbol alphabet size.
  */
 #define f4_MAXABET    20      /* maximum size of alphabet (4 or 20)              */
-#define f4_MAXCODE    29      /* maximum degenerate alphabet size (18 or 29)     */
 
 #define f4_EVPARAM_UNSET -99999.0f  /* if evparam[0] is unset, then all unset                         */
 #define f4_CUTOFF_UNSET  -99999.0f  /* if cutoff[XX1] is unset, then cutoff[XX2] unset, XX={GA,TC,NC} */
@@ -403,7 +372,6 @@ typedef struct f4_trace_s {
   int  *sqfrom,  *sqto;	/* first/last M-emitted residue on sequence (1..L)   */
   int  *hmmfrom, *hmmto;/* first/last M state on model (1..M)                */
   int   ndomalloc;	/* current allocated size of these stacks            */
-
 } F4_TRACE;
 
 /*****************************************************************

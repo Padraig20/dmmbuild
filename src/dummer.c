@@ -35,23 +35,6 @@ f4_banner(FILE *fp, const char *progname, char *banner)
  * 2. Error functions
  *****************************************************************/
 
-/* Function:  f4_Die()
- * Synopsis:  Handle a fatal exception (something that's our fault)
- */
-void
-f4_Die(char *format, ...)
-{
-  va_list  argp;
-                                /* format the error mesg */
-  fprintf(stderr, "\nFATAL: ");
-  va_start(argp, format);
-  vfprintf(stderr, format, argp);
-  va_end(argp);
-  fprintf(stderr, "\n");
-  fflush(stderr);
-  exit(1);
-}
-
 /* Function:  f4_Fail()
  * Synopsis:  Handle a user error (something that's the user's fault).
  */
