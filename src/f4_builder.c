@@ -45,8 +45,6 @@ f4_builder_Create(const ESL_GETOPTS *go, const ESL_ALPHABET *abc)
   ESL_ALLOC(bld, sizeof(F4_BUILDER));
   bld->prior        = NULL;
   bld->r            = NULL;
-  bld->S            = NULL;
-  bld->Q            = NULL;
   bld->eset         = -1.0;	/* -1.0 = unset; must be set if effn_strategy is f4_EFFN_SET */
   bld->re_target    = -1.0;
 
@@ -95,13 +93,6 @@ f4_builder_Create(const ESL_GETOPTS *go, const ESL_ALPHABET *abc)
   bld->wid        = (go != NULL) ?  esl_opt_GetReal   (go, "--wid")        : 0.62;
   bld->esigma     = (go != NULL) ?  esl_opt_GetReal   (go, "--esigma")     : 45.0;
   bld->eid        = (go != NULL) ?  esl_opt_GetReal   (go, "--eid")        : 0.62;
-  bld->EmL        = (go != NULL) ?  esl_opt_GetInteger(go, "--EmL")        : 200;
-  bld->EmN        = (go != NULL) ?  esl_opt_GetInteger(go, "--EmN")        : 200;
-  bld->EvL        = (go != NULL) ?  esl_opt_GetInteger(go, "--EvL")        : 200;
-  bld->EvN        = (go != NULL) ?  esl_opt_GetInteger(go, "--EvN")        : 200;
-  bld->EfL        = (go != NULL) ?  esl_opt_GetInteger(go, "--EfL")        : 100;
-  bld->EfN        = (go != NULL) ?  esl_opt_GetInteger(go, "--EfN")        : 200;
-  bld->Eft        = (go != NULL) ?  esl_opt_GetReal   (go, "--Eft")        : 0.04;
 
   /* Normally we reinitialize the RNG to original seed before calibrating each model.
    * This eliminates run-to-run variation.
@@ -148,8 +139,6 @@ f4_builder_Destroy(F4_BUILDER *bld)
 
   if (bld->prior   != NULL) f4_prior_Destroy(bld->prior);
   if (bld->r       != NULL) esl_randomness_Destroy(bld->r);
-  if (bld->Q       != NULL) esl_dmatrix_Destroy(bld->Q);
-  if (bld->S       != NULL) esl_scorematrix_Destroy(bld->S);
 
   free(bld);
   return;
@@ -243,6 +232,8 @@ f4_Builder(F4_BUILDER *bld, ESL_MSA *msa, F4_BG *bg, F4_HMM **opt_hmm, F4_TRACE 
       if (hmm->mm[i] == 'm')
         for (j=0; j<hmm->abc->K; j++)
           hmm->mat[i][j] = bg->f[j];
+
+  printf("%d\n", bld->abc->type);
 
   if ( bld->abc->type == eslDNA ||  bld->abc->type == eslRNA ) {
 	  if (bld->w_len > 0)           hmm->max_length = bld->w_len;

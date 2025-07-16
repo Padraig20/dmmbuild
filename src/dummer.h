@@ -274,22 +274,9 @@ typedef struct f4_builder_s {
   ESL_RANDOMNESS      *r;	         /* RNG for E-value calibration simulations                */
   int                  do_reseeding;	 /* TRUE to reseed, making results reproducible            */
 
-  /* E-value parameter calibration                                                                 */
-  int                  EmL;            	 /* length of sequences generated for MSV fitting          */
-  int                  EmN;	         /* # of sequences generated for MSV fitting               */
-  int                  EvL;            	 /* length of sequences generated for Viterbi fitting      */
-  int                  EvN;	         /* # of sequences generated for Viterbi fitting           */
-  int                  EfL;	         /* length of sequences generated for Forward fitting      */
-  int                  EfN;	         /* # of sequences generated for Forward fitting           */
-  double               Eft;	         /* tail mass used for Forward fitting                     */
-
   /* Choice of prior                                                                               */
   F4_PRIOR            *prior;	         /* choice of prior when parameterizing from counts        */
   int                  max_insert_len;
-
-  /* Optional: information used for parameterizing single sequence queries                         */
-  ESL_SCOREMATRIX     *S;		 /* residue score matrix                                   */
-  ESL_DMATRIX         *Q;	         /* Q->mx[a][b] = P(b|a) residue probabilities             */
 
   double               w_beta;    /*beta value used to compute W (window length)   */
   int                  w_len;     /*W (window length)  explicitly set */
