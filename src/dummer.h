@@ -436,8 +436,6 @@ extern void    f4_hmm_Destroy(F4_HMM *hmm);
 extern int     f4_hmm_CopyParameters(const F4_HMM *src, F4_HMM *dest);
 extern F4_HMM *f4_hmm_Clone(const F4_HMM *hmm);
 extern int     f4_hmm_Zero(F4_HMM *hmm);
-extern char    f4_hmm_EncodeStatetype(char *typestring);
-extern char   *f4_hmm_DecodeStatetype(char st);
 /*      2. Convenience routines for setting fields in an HMM. */
 extern int     f4_hmm_SetName       (F4_HMM *hmm, char *name);
 extern int     f4_hmm_SetAccession  (F4_HMM *hmm, char *acc);
@@ -459,7 +457,6 @@ extern F4_PRIOR  *f4_prior_CreateNucleic(void);
 extern F4_PRIOR  *f4_prior_CreateLaplace(const ESL_ALPHABET *abc);
 extern void       f4_prior_Destroy(F4_PRIOR *pri);
 
-extern int        p7_ParameterEstimation(F4_HMM *hmm, const F4_PRIOR *pri); //TODO will be removed in future
 extern int        f4_ParameterEstimation(F4_HMM *hmm, const F4_PRIOR *pri);
 
 /* f4_trace.c */
