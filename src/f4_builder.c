@@ -23,16 +23,11 @@
  *            used. If <go> is non-<NULL>, it must include appropriate
  *            settings for all of the following ``standard build options'':
  *            
- *            Model construction:   --fast --hand --symfrac --fragthresh
+ *            Model construction:   --fast --symfrac --fragthresh
  *            Relative weighting:   --wgsc --wblosum --wpb --wgiven --wid
  *            Effective seq #:      --eent --eclust --enone --eset --ere --esigma --eid
  *            Prior scheme:         --pnone --plaplace
- *            E-val calibration:    --EmL --EmN --EvL --EvN --EfL --EfN --Eft
  *            run-to-run variation: --seed
- *            
- *            See <hmmbuild.c> or other big users of the build
- *            pipeline for an example of appropriate <ESL_GETOPTS>
- *            initializations of these 24 options.
  */
 F4_BUILDER *
 f4_builder_Create(const ESL_GETOPTS *go, const ESL_ALPHABET *abc)

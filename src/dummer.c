@@ -1,3 +1,10 @@
+/* DUMMER helper functions
+ * 
+ * Contents:
+ *   1. Miscellaneous functions.
+ *   2. Error functions.
+ */
+
 #include <math.h>
 #include <float.h>
 
@@ -53,7 +60,6 @@ f4_Fail(char *format, ...)
 }
 
 /* Function:  f4_AminoFrequencies()
- * Incept:    SRE, Fri Jan 12 13:46:41 2007 [Janelia]
  *
  * Purpose:   Fills a vector <f> with amino acid background frequencies,
  *            in [A..Y] alphabetic order, same order that Easel digital

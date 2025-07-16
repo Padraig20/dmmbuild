@@ -1,12 +1,17 @@
 /* Mixture Dirichlet priors for profile HMMs.
  * 
- * SRE, Sat Mar 24 09:12:44 2007 [Janelia]
+ * Contents:
+ *    1. Creating and destroying priors.
+ *    2. Creating probabilities from counts and priors.
  */
 
 #include "dummer.h"
 
+/*****************************************************************
+ * 1. Creating and destroying priors.
+ *****************************************************************/
+
 /* Function:  f4_prior_CreateAmino()
- * Incept:    SRE, Sat Mar 24 09:35:36 2007 [Janelia]
  *
  * Purpose:   Creates the default mixture Dirichlet prior for protein
  *            sequences.
@@ -164,17 +169,6 @@ f4_prior_CreateNucleic(void)
   F4_PRIOR *pri = NULL;
   int q;
 
-  /* Plus-1 Laplace prior
-  int num_comp = 1;
-  static double defmq[2] =  { 1.0  };
-  static double defm[1][4] = {
-         { 1.0, 1.0, 1.0, 1.0} //
-  };
-*/
-
-  /* Match emission priors are trained on Rmark3 database
-   * Xref: ~wheelert/notebook/2011/0325_nhmmer_new_parameters
-   */
    int num_comp = 4;
    static double defmq[4] = { 0.24, 0.26, 0.08, 0.42  };
    static double defm[4][4] = {
@@ -183,8 +177,6 @@ f4_prior_CreateNucleic(void)
          { 1.29,  0.40,  6.58,   0.51},
          { 1.74,  1.49,  1.57,   1.95}
 	};
-
-
 
   ESL_ALLOC(pri, sizeof(F4_PRIOR));
   pri->tm = pri->ti = pri->td = pri->em = pri->ei = NULL;
@@ -250,11 +242,8 @@ f4_prior_CreateNucleic(void)
   return NULL;
 }
 
-
-
 /* Function:  f4_prior_CreateLaplace()
  * Synopsis:  Creates Laplace plus-one prior.
- * Incept:    SRE, Sat Jun 30 09:48:13 2007 [Janelia]
  *
  * Purpose:   Create a Laplace plus-one prior for alphabet <abc>.
  */
@@ -293,9 +282,7 @@ f4_prior_CreateLaplace(const ESL_ALPHABET *abc)
   return NULL;
 }
 
-
 /* Function:  f4_prior_Destroy()
- * Incept:    SRE, Sat Mar 24 09:55:09 2007 [Janelia]
  *
  * Purpose:   Frees a mixture Dirichlet prior.
  */
@@ -314,8 +301,11 @@ f4_prior_Destroy(F4_PRIOR *pri)
   free(pri);
 }
 
+/*****************************************************************
+ * 2. Creating probabilities from counts and priors.
+ *****************************************************************/
+
 /* Function:  f4_ParameterEstimation()
- * Incept:    
  *
  * Purpose:   Given an <hmm> containing weighted counts of parameters, and
  *            a mixture Dirichlet prior <pri>: calculate mean
@@ -331,8 +321,6 @@ f4_prior_Destroy(F4_PRIOR *pri)
  *            pri - mixture Dirichlet prior structure, or <NULL>.
  *            
  * Returns:   <eslOK> on success.
- * 
- * TODO: Check if renormalization is needed for f4.
  */
 int
 f4_ParameterEstimation(F4_HMM *hmm, const F4_PRIOR *pri)

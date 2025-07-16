@@ -5,9 +5,6 @@
  *   2. Convenience routines for setting fields in an HMM.
  *   3. Renormalization and rescaling counts in core HMMs.
  *   4. Debugging and development code.
- *   5. Other routines in the API.
- *   6. Unit tests.
- *   7. Test driver. 
  */
 
 #include <stdlib.h>
@@ -18,7 +15,7 @@
 #include "dummer.h"
 
 /*****************************************************************
- *# 1. The F4_HMM object: allocation, initialization, destruction.
+ * 1. The F4_HMM object: allocation, initialization, destruction.
  *****************************************************************/
 
 /* Function:  f4_hmm_Create()
@@ -106,7 +103,7 @@ f4_hmm_CreateShell(void)
 }  
 
 /* Function:  f4_hmm_CreateBody()
- * Synopsis:  Allocate the ``body'' of a <F4_HMM>.
+ * Synopsis:  Allocate the "body" of a <F4_HMM>.
  *
  * Purpose:   Given an allocated shell <hmm>, and a now-known number
  *            of nodes <M> and alphabet <abc>, allocate
@@ -527,8 +524,6 @@ f4_hmm_SetCtime(F4_HMM *hmm)
   return status;
 }
 
-
-
 /* Function:  f4_hmm_SetComposition()
  * Synopsis:  Calculate and set model composition, <hmm->compo[]>
  *
@@ -588,7 +583,6 @@ f4_hmm_SetComposition(F4_HMM *hmm)
   if (iocc != NULL) free(iocc);
   return status;
 }
-  
 
 /* Function:  f4_hmm_SetConsensus()
  * Synopsis:  Set the consensus residue line of the HMM.
@@ -630,8 +624,6 @@ f4_hmm_SetComposition(F4_HMM *hmm)
  * Throws:    <eslEMEM> on allocation error. The <f4H_CONS> is dropped, even
  *            if it was up to begin with, and the <hmm->consensus> is <NULL>,
  *            even if we had one to begin with.
- *
- * Xref:      SRE:J8/26.
  */
 int
 f4_hmm_SetConsensus(F4_HMM *hmm, ESL_SQ *sq)
@@ -666,9 +658,6 @@ f4_hmm_SetConsensus(F4_HMM *hmm, ESL_SQ *sq)
   return status;
 }
 /*---------------- end, internal-setting routines ---------------*/
-
-
-
 
 /*****************************************************************
  * 3. Renormalization and rescaling counts in core HMMs.

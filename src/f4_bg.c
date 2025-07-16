@@ -1,7 +1,15 @@
-/* F4_BG: the null (background) model */
+/* F4_BG: the null (background) model .
+ * 
+ * Contents:
+ *    1. Creating and destroying null models.
+ */
 
 #include <string.h>
 #include "dummer.h"
+
+/*****************************************************************
+ * 1. Creating and destroying null models.
+ *****************************************************************/
 
 /* Function:  f4_bg_Create()
  * Synopsis:  Create a <F4_BG> null model object.

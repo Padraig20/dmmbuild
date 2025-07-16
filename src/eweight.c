@@ -3,11 +3,18 @@
  * Reference: 
  *    L. Steven Johnson, "Remote Protein Homology Detection Using Hidden Markov Models",
  *    Ph.D. thesis, Washington University School of Medicine, 2006.
- *    
- * SRE, Fri May  4 14:01:54 2007 [Janelia] [Tom Waits, Orphans]
+ * 
+ * Contents:
+ *   1. Definitions of structures used in the program.
+ *   2. Internal functions.
+ *   3. Exported API: entropy weighting functions.
  */
 
 #include "dummer.h"
+
+/*****************************************************************
+ * 1. Definitions of structures used in the program.
+ *****************************************************************/
 
 struct ew_param_s {
   const F4_HMM    *hmm;		/* ptr to the original count-based HMM, which remains unchanged */
@@ -16,6 +23,10 @@ struct ew_param_s {
   F4_HMM          *h2;		/* our working space: a copy of <hmm> that we can muck with */
   double           etarget;	/* information content target, in bits */
 };
+
+/*****************************************************************
+ * 2. Internal functions.
+ *****************************************************************/
 
 /* Evaluate fx = rel entropy - etarget, which we want to be = 0,
  * for effective sequence number <x>.
@@ -32,8 +43,11 @@ eweight_target_f(double Neff, void *params, double *ret_fx)
   return eslOK;
 }
 
+/*****************************************************************
+ * 2. Exported API: entropy weighting functions.
+ *****************************************************************/
+
 /* Function:  f4_EntropyWeight()
- * Incept:    SRE, Fri May  4 15:32:59 2007 [Janelia]
  *
  * Purpose:   Use the "entropy weighting" algorithm to determine
  *            what effective sequence number we should use, and
@@ -107,8 +121,6 @@ eweight_target_exp_f(double exp, void *params, double *ret_fx)
   return eslOK;
 }
 
-
-
 /* Function:  f4_EntropyWeight_exp()
  *
  * Purpose:   Use an alternative "entropy weighting" algorithm to
@@ -174,4 +186,3 @@ f4_EntropyWeight_exp(const F4_HMM *hmm, const F4_BG *bg, const F4_PRIOR *pri, do
 
   return status;
 }
-

@@ -1,6 +1,19 @@
+/* dmmbuild: building profile HMMs from multiple sequence alignments for DUMMER.
+ *
+ * Contents:
+ *   1. Definitions of structures used in the program.
+ *   2. Process command line arguments.
+ *   3. Helper functions.
+ *   4. Serial loop, build HMMs for each MSA.
+ *   5. Master that builds HMMs for each MSA.
+ *   6. Main program.
+ */
+
 #include "dummer.h"
 
-/* ---------- DEFINITIONS ---------- */
+/*****************************************************************
+ * 1. Definitions of structures used in the program
+ *****************************************************************/
 
 /* struct cfg_s : "Global" application configuration shared by all threads/processes
  * 
@@ -124,7 +137,9 @@ static ESL_OPTIONS options[] = {
   {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
 
-/* ---------- PROCESSING CMD INPUT ---------- */
+/*****************************************************************
+ * 2. Process command line arguments.
+ *****************************************************************/
 
 static int
 process_commandline(int argc, char **argv, ESL_GETOPTS **ret_go, char **ret_dmmfile, char **ret_alifile)
@@ -196,7 +211,9 @@ process_commandline(int argc, char **argv, ESL_GETOPTS **ret_go, char **ret_dmmf
   exit(status);
 }
 
-/* ---------- HELPER FUNCTIONS ---------- */
+/*****************************************************************
+ * 3. Helper functions.
+ *****************************************************************/
 
 static int
 output_header(const ESL_GETOPTS *go, const struct cfg_s *cfg)
@@ -246,7 +263,6 @@ output_header(const ESL_GETOPTS *go, const struct cfg_s *cfg)
   //if (esl_opt_IsUsed(go, "--mx")         && fprintf(cfg->ofp, "# subst score matrix (built-in):    %s\n",         esl_opt_GetString (go, "--mx"))      < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
   //if (esl_opt_IsUsed(go, "--mxfile")     && fprintf(cfg->ofp, "# subst score matrix (file):        %s\n",         esl_opt_GetString (go, "--mxfile"))  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
   if (esl_opt_IsUsed(go, "--maxinsertlen")  && fprintf(cfg->ofp, "# max insert length:                %d\n",         esl_opt_GetInteger (go, "--maxinsertlen"))  < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
-
 
   if (esl_opt_IsUsed(go, "--seed"))  {
     if (esl_opt_GetInteger(go, "--seed") == 0  && fprintf(cfg->ofp,"# random number seed:               one-time arbitrary\n")                        < 0) ESL_EXCEPTION_SYS(eslEWRITE, "write failed");
@@ -398,7 +414,9 @@ set_msa_name(struct cfg_s *cfg, char *errbuf, ESL_MSA *msa)
   return eslOK;
 }
 
-/* ---------- SERIAL LOOP ---------- */
+/*****************************************************************
+ * 4. Serial loop, build HMMs for each MSA.
+ *****************************************************************/
 
 static void
 serial_loop(WORKER_INFO *info, struct cfg_s *cfg, const ESL_GETOPTS *go)
@@ -430,7 +448,9 @@ serial_loop(WORKER_INFO *info, struct cfg_s *cfg, const ESL_GETOPTS *go)
     }
 }
 
-/* ---------- MASTER THREAD ---------- */
+/*****************************************************************
+ * 5. Master that builds HMMs for each MSA.
+ *****************************************************************/
 
 /* usual_master()
  * The usual version of dmmbuild (serial)
@@ -515,7 +535,9 @@ usual_master(const ESL_GETOPTS *go, struct cfg_s *cfg)
   return eslFAIL;
 }
 
-/* ---------- START MAIN ---------- */
+/*****************************************************************
+ * 6. Main program.
+ *****************************************************************/
 
 int
 main(int argc, char **argv)

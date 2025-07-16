@@ -1,7 +1,6 @@
 /* Construction of new HMMs from multiple alignments.
  * 
- * Two versions: 
- *    f4_Fastmodelmaker() -- Krogh/Haussler heuristic
+ * f4_Fastmodelmaker() -- Krogh/Haussler heuristic
  * 
  * The maximum likelihood model construction algorithm that was in previous
  * HMMER versions has been deprecated, at least for the moment.
@@ -11,13 +10,9 @@
  * are supposed to be match states, and then hand this info to
  * matassign2hmm().
  * 
- * 
  * Contents:
  *    1. Exported API: model construction routines.
  *    2. Private functions used in constructing models.
- *    3. Unit tests.
- *    4. Test driver.
- *    5. Example.
  */
 
 #include "dummer.h"
@@ -124,13 +119,9 @@ f4_Fastmodelmaker(ESL_MSA *msa, float symfrac, F4_BUILDER *bld, F4_HMM **ret_hmm
 
 /*-------------------- end, exported API -------------------------*/
 
-
-
-
 /*****************************************************************
  * 2. Private functions used in constructing models.
  *****************************************************************/ 
-
 
 /* Function: do_modelmask()
  *
@@ -260,8 +251,6 @@ matassign2hmm(ESL_MSA *msa, int *matassign, F4_HMM **ret_hmm, F4_TRACE ***opt_tr
   *ret_hmm = NULL;
   return status;
 }
-  
-
 
 /* Function: annotate_model()
  * 

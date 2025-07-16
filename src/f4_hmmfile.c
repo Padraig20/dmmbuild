@@ -1,7 +1,14 @@
+/* Printing the result to an HMMER3 ASCII save file.
+ * 
+ * Contents:
+ *    1. Helper functions for i/o stuff.
+ *    2. Writing HMMER3 HMM files.
+ */
+
 #include "dummer.h"
 
 /*****************************************************************
- * 1. Other helper functions for i/o stuff
+ * 1. Helper functions for i/o stuff
  *****************************************************************/
 
  /* These tags need to be in temporal order, so we can do tests
