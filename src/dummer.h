@@ -461,44 +461,20 @@ extern int        f4_ParameterEstimation(F4_HMM *hmm, const F4_PRIOR *pri);
 
 /* f4_trace.c */
 extern F4_TRACE *f4_trace_Create(void);
-extern F4_TRACE *f4_trace_CreateWithPP(void);
-extern int  f4_trace_Reuse(F4_TRACE *tr);
 extern int  f4_trace_Grow(F4_TRACE *tr);
-extern int  f4_trace_GrowIndex(F4_TRACE *tr);
-extern int  f4_trace_GrowTo(F4_TRACE *tr, int N);
-extern int  f4_trace_GrowIndexTo(F4_TRACE *tr, int ndom);
 extern void f4_trace_Destroy(F4_TRACE *tr);
 extern void f4_trace_DestroyArray(F4_TRACE **tr, int N);
 
-extern int  f4_trace_GetDomainCount   (const F4_TRACE *tr, int *ret_ndom);
-extern int  f4_trace_GetStateUseCounts(const F4_TRACE *tr, int *counts);
-extern int  f4_trace_GetDomainCoords  (const F4_TRACE *tr, int which, int *ret_i1, int *ret_i2,
-				       int *ret_k1, int *ret_k2);
-
-extern int   f4_trace_Validate(const F4_TRACE *tr, const ESL_ALPHABET *abc, const ESL_DSQ *dsq, char *errbuf);
-extern int   f4_trace_Compare(F4_TRACE *tr1, F4_TRACE *tr2, float pptol);
-extern float f4_trace_GetExpectedAccuracy(const F4_TRACE *tr);
-
+extern int  f4_trace_Validate(const F4_TRACE *tr, const ESL_ALPHABET *abc, const ESL_DSQ *dsq, char *errbuf);
 extern int  f4_trace_Append(F4_TRACE *tr, char st, int k, int i);
-extern int  f4_trace_AppendWithPP(F4_TRACE *tr, char st, int k, int i, float pp);
-extern int  f4_trace_Reverse(F4_TRACE *tr);
-extern int  f4_trace_Index(F4_TRACE *tr);
-
 extern int  f4_trace_FauxFromMSA(ESL_MSA *msa, int *matassign, int optflags, F4_TRACE **tr);
 
-extern int  p7_trace_Count(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr);
 extern int  f4_trace_Count(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr);
-
 extern int  f4_trace_Estimate(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **letter_probs, double *background_probs);
 extern int  letter_probs_build(int profile_length, int num_of_letters, double ***ret_letter_probs, double **ret_background_probs);
 extern int  letter_probs_count(int sequence_length, ESL_DSQ *dsq, float wt, double **letter_probs, double *background_probs);
 extern int letter_probs_normalize(int profile_length, int num_of_letters, double **letter_probs, double *background_probs);
 extern void letter_probs_destroy(int sequence_length, double **letter_probs, double *background_probs);
-
-/* seqmodel.c */
-extern int f4_Seqmodel(const ESL_ALPHABET *abc, ESL_DSQ *dsq, int M, char *name,
-		       ESL_DMATRIX *P, float *f, double popen, double pextend,
-		       F4_HMM **ret_hmm);
 
 /* eweight.c */
 extern int f4_EntropyWeight(const F4_HMM *hmm, const F4_BG *bg, const F4_PRIOR *pri, double infotarget, double *ret_Neff);
