@@ -415,17 +415,7 @@ extern double f4_MeanMatchRelativeEntropy(const F4_HMM *hmm, const F4_BG *bg);
 
 /* f4_bg.c */
 extern F4_BG *f4_bg_Create(const ESL_ALPHABET *abc);
-extern F4_BG *f4_bg_Clone(const F4_BG *bg);
-extern int    f4_bg_Dump(FILE *ofp, const F4_BG *bg);
 extern void   f4_bg_Destroy(F4_BG *bg);
-extern int    f4_bg_SetLength(F4_BG *bg, int L);
-extern int    f4_bg_NullOne(const F4_BG *bg, const ESL_DSQ *dsq, int L, float *ret_sc);
-
-extern int    f4_bg_Read(char *bgfile, F4_BG *bg, char *errbuf);
-extern int    f4_bg_Write(FILE *fp, F4_BG *bg);
-
-extern int    f4_bg_SetFilter  (F4_BG *bg, int M, const float *compo);
-extern int    f4_bg_FilterScore(F4_BG *bg, const ESL_DSQ *dsq, int L, float *ret_sc);
 
 /* f4_builder.c */
 extern F4_BUILDER *f4_builder_Create(const ESL_GETOPTS *go, const ESL_ALPHABET *abc);
