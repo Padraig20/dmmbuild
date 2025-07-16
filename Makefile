@@ -29,4 +29,7 @@ clean:
 	$(MAKE) -C $(EASEL_DIR) clean
 	rm -f $(OBJ_FILES) $(BIN)
 
+clean-local:
+	rm -f $(OBJ_FILES) $(BIN)
+
 .PHONY: all clean easel
