@@ -35,8 +35,8 @@ As the original HMMER project, we depend on Easel. You'll need to clone both the
 DUMMER and Easel repositories, configure Easel and build both, as follows:
 
 ```bash
-   % git clone https://github.com/Padraig20/hmmbuild
-   % cd hmmbuild
+   % git clone https://github.com/Padraig20/dmmbuild
+   % cd dmmbuild
    % git clone https://github.com/EddyRivasLab/easel
    % cd easel
    % autoconf
