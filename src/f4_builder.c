@@ -228,8 +228,6 @@ f4_Builder(F4_BUILDER *bld, ESL_MSA *msa, F4_BG *bg, F4_HMM **opt_hmm, F4_TRACE 
         for (j=0; j<hmm->abc->K; j++)
           hmm->mat[i][j] = bg->f[j];
 
-  printf("%d\n", bld->abc->type);
-
   if ( bld->abc->type == eslDNA ||  bld->abc->type == eslRNA ) {
 	  if (bld->w_len > 0)           hmm->max_length = bld->w_len;
 	  else if (bld->w_beta == 0.0)  hmm->max_length = hmm->M *4;

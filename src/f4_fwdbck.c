@@ -234,8 +234,8 @@ letter_probs_normalize(int profile_length, int num_of_letters, double **letter_p
 int
 letter_probs_count(int profile_length, ESL_DSQ *dsq, float wt, double **letter_probs, double *background_probs)
 {
-  for (int i = 0; i < profile_length; i++) {
-    letter_probs[i][dsq[i]]  += wt;
+  for (int i = 1; i <= profile_length; i++) {
+    letter_probs[i-1][dsq[i]]  += wt;
     background_probs[dsq[i]] += wt;
   }
   return eslOK;
