@@ -80,12 +80,11 @@ f4_Fastmodelmaker(ESL_MSA *msa, float symfrac, F4_BUILDER *bld, F4_HMM **ret_hmm
 
   if (! (msa->flags & eslMSA_DIGITAL)) ESL_XEXCEPTION(eslEINVAL, "need digital MSA");
 
-  /* Allocations: matassign is 1..alen array of bit flags.
-   */
-  ESL_ALLOC(matassign, sizeof(int)     * (msa->alen+1));
+  /* Allocations: matassign is 1..alen array of bit flags. */
+  matassign = calloc(msa->alen + 1, sizeof(int));
+  if (matassign == NULL) ESL_XEXCEPTION(eslEMEM, "allocation failed for matassign");
 
-  /* Determine weighted sym freq in each column, set matassign[] accordingly.
-   */
+  /* Determine weighted sym freq in each column, set matassign[] accordingly. */
   for (apos = 1; apos <= msa->alen; apos++) 
     {  
       r = totwgt = 0.;
@@ -206,28 +205,25 @@ matassign2hmm(ESL_MSA *msa, int *matassign, F4_HMM **ret_hmm, F4_TRACE ***opt_tr
 
   // now hmm has the initial profile (aka counts), which will now be refined via Baum-Welch
 
-  double **letter_probs;    // [0..msa->alen-1][0..hmm->abc->K-1] letter probabilities
-  double *background_probs; // [0..hmm->abc->K-1]                 background probabilities
+  double **letter_probs;    // [0..msa->alen-1][1..hmm->abc->K-1] letter probabilities
+  double *background_probs; // [1..hmm->abc->K-1]                 background probabilities
 
   if ((status = letter_probs_build(hmm->M, msa->abc->K, &letter_probs, &background_probs)) != eslOK) goto ERROR;
 
   for (idx = 0; idx < msa->nseq; idx++) {
-    if ((status = letter_probs_count(hmm->M, msa->ax[idx], msa->wgt[idx], letter_probs, background_probs)) != eslOK) goto ERROR;
+    if ((status = letter_probs_count(hmm->M, msa->alen, msa->ax[idx], msa->wgt[idx], msa->abc, letter_probs, background_probs, matassign)) != eslOK) goto ERROR;
   }
 
   if ((status = letter_probs_normalize(hmm->M, msa->abc->K, letter_probs, background_probs))             != eslOK) goto ERROR;
 
-  for (idx = 0; idx < msa->nseq; idx++) {
-    if ((status = f4_trace_Estimate(hmm, msa->ax[idx], msa->wgt[idx], tr[idx], letter_probs, background_probs)) != eslOK) goto ERROR;
-  }
+  if ((status = f4_trace_Estimate(hmm, msa, tr, letter_probs, background_probs)) != eslOK) goto ERROR;
 
   letter_probs_destroy(hmm->M, letter_probs, background_probs);
 
   hmm->nseq     = msa->nseq;
   hmm->eff_nseq = msa->nseq;
 
-  /* Transfer annotation from the MSA to the new model
-   */
+  /* Transfer annotation from the MSA to the new model */
   if ((status = annotate_model(hmm, matassign, msa)) != eslOK) goto ERROR;
 
   /* Reset #=RF line of alignment to reflect our assignment

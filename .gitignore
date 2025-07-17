@@ -2,5 +2,6 @@ easel
 .vscode
 *.hmm
 *.sto
+*.stk
 dmmbuild
 *.o

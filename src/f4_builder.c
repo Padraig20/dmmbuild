@@ -211,7 +211,8 @@ f4_Builder(F4_BUILDER *bld, ESL_MSA *msa, F4_BG *bg, F4_HMM **opt_hmm, F4_TRACE 
   if ((status =  annotate             (bld, msa, hmm))                  != eslOK) goto ERROR;
   //if ((status =  calibrate            (bld, hmm, bg, opt_gm, opt_om))   != eslOK) goto ERROR;
 
-  /* sanity check: printing resulting probabilities. TODO remove later */
+  /* sanity check: printing resulting probabilities.*/
+  /*
   printf("hmm->tp matrix:\n");
   for (i = 1; i < hmm->M; i++) {
     printf("tp[%d]:", i);
@@ -220,6 +221,7 @@ f4_Builder(F4_BUILDER *bld, ESL_MSA *msa, F4_BG *bg, F4_HMM **opt_hmm, F4_TRACE 
     }
     printf("\n");
   }
+  */
 
   //force masked positions to background  (it'll be close already, so no relevant impact on weighting)
   if (hmm->mm != NULL)

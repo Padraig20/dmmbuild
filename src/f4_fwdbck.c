@@ -230,14 +230,38 @@ letter_probs_normalize(int profile_length, int num_of_letters, double **letter_p
  *           background_probs - holds counts of letters of all positions in the profile
  * 
  * Returns:  <eslOK> on success.
+ *           <eslFAIL> on invalid symbol in the sequence OR profile has not been extracted successfully.
  */
 int
-letter_probs_count(int profile_length, ESL_DSQ *dsq, float wt, double **letter_probs, double *background_probs)
+letter_probs_count(int profile_length, int seq_length, ESL_DSQ *dsq, float wt, ESL_ALPHABET *abc,
+                   double **letter_probs, double *background_probs, int *matassign)
 {
-  for (int i = 1; i <= profile_length; i++) {
-    letter_probs[i-1][dsq[i]]  += wt;
+  int idx = 0;
+
+  for (int i = 1; i <= seq_length; i++) {
+
+    if (matassign[i]) {
+      ++idx;
+    } else {
+      continue; // skip positions not assigned to the profile
+    }
+
+    if (dsq[i] >= abc->K && dsq[i] < abc->Kp) {
+      continue; // this is just a gap or missing symbol, skip it
+    } else if (dsq[i] < 0 || dsq[i] >= abc->Kp) {
+      fprintf(stderr, "Error: Invalid symbol %d at position %d in the sequence.\n", dsq[i], i);
+      return eslFAIL;
+    }
+
+    letter_probs[idx][dsq[i]]  += wt;
     background_probs[dsq[i]] += wt;
   }
+
+  if (idx != profile_length) {
+    fprintf(stderr, "Error: Profile length (%d) does not match the number of assigned positions (%d).\n", profile_length, idx);
+    return eslFAIL;
+  }
+
   return eslOK;
 }
 
@@ -263,6 +287,7 @@ letter_probs_count(int profile_length, ESL_DSQ *dsq, float wt, double **letter_p
  * 
  * Returns:  <eslOK> on success.
  *           <eslEMEM> on memory allocation failure.
+ *           <eslFAIL> on invalid symbol in the sequence.
  * 
  * Note:     Note that the X, Y and Z matrices in Algorithm 3 also include i,j = -1
  *           and i = m, j = n. To account for that, index 0 in the array corresponds
@@ -270,15 +295,29 @@ letter_probs_count(int profile_length, ESL_DSQ *dsq, float wt, double **letter_p
  *           array was "shifted" towards the right.
  */
 int
-f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **X, double **Y, double **Z, int M, int N, double **letter_probs, double *background_probs, double *w_sum)
+f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
+       double **X, double **Y, double **Z, int M, int N,
+       double **letter_probs, double *background_probs, double *w_sum)
 {
   double S;                                                              // score
   double a_prime, b_prime, d_prime, e_prime;                             // parameters for BW
   double alpha_prob, beta_prob, delta_prob, epsilon_prob, epsilon_prob1; // counts to probabilities
   double w;
+  int letter;
 
   for (int i = 1; i <= M+1; i++) {
     for (int j = 1; j <= N+1; j++) {
+
+      letter = dsq[j];
+
+      if (letter >= abc->K && letter < abc->Kp) {
+        continue;
+      } else if ((dsq[j] < 0 || dsq[j] >= abc->Kp) && j != N+1) {
+        fprintf(stderr, "Error f4_fwd(): Invalid symbol %d at position %d in the sequence.\n", dsq[j-1], j);
+        return eslFAIL;
+      }
+
+      if (j == N+1) letter = 0; // can use arbitrary values for theta_n
 
       alpha_prob   = hmm->tp[i-1][f4H_ALPHA]   / (hmm->tp[i-1][f4H_ALPHA]   + hmm->tp[i-1][f4H_DELTA] + hmm->tp[i-1][f4H_GAMMA]);
       beta_prob    = hmm->tp[i-1][f4H_BETA]    / (hmm->tp[i-1][f4H_BETA]    + hmm->tp[i-1][f4H_BETAP]);
@@ -301,14 +340,14 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **X, double **Y
         epsilon_prob1 = hmm->tp[i][f4H_EPSILONP] / (hmm->tp[i][f4H_EPSILON] + hmm->tp[i][f4H_EPSILONP]);
         if (isnan(epsilon_prob1)) epsilon_prob1 = 0.0;
 
-        S = (1 - alpha_prob - delta_prob) * letter_probs[i-1][dsq[j-1]] / background_probs[dsq[j-1]];
+        S = (1 - alpha_prob - delta_prob) * letter_probs[i-1][letter] / background_probs[letter];
 
         d_prime = delta_prob   * (1 - epsilon_prob1);
         e_prime = epsilon_prob * (1 - epsilon_prob1) / (1 - epsilon_prob);
         if (isnan(e_prime)) e_prime = 0.0; // Avoid NaN issues
       }
 
-      w = X[i-1][j-1] + Y[i-1][j] + Z[i][j-1] + 1;
+      w = X[i-1][j-1] + Y[i-1][j] + Z[i][j-1] + wt; // weight is the score
       *w_sum += w;
 
       /* Sanity check: ensure no NaN values in the parameters */
@@ -343,21 +382,39 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **X, double **Y
  *           letter_probs - letter probabilities for the sequence
  *           background_probs - background probabilities for the alphabet
  * 
+ * Returns:  <eslOK> on success.
+ *           <eslEMEM> on memory allocation failure.
+ *           <eslFAIL> on invalid symbol in the sequence.
+ * 
  * Note:     Note that the X, Y and Z matrices in Algorithm S5 also include i,j = -1
  *           and i = m, j = n. To account for that, index 0 in the array corresponds
  *           to -1 in the algorithm, and index m/n corresponds to m+1/n+1. I.e. the
  *           array was "shifted" towards the right.
  */
 int
-f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **W_bar, double **Y_bar, double **Z_bar, int M, int N, double **letter_probs, double *background_probs)
+f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
+       double **W_bar, double **Y_bar, double **Z_bar, int M, int N,
+       double **letter_probs, double *background_probs)
 {
   double S;                                                              // score
   double a_prime, b_prime, d_prime, e_prime;                             // parameters for BW
   double alpha_prob, beta_prob, delta_prob, epsilon_prob, epsilon_prob1; // counts to probabilities
   double x;
+  int letter;
 
   for (int i = M; i >= 0; i--) {
     for (int j = N; j >= 0; j--) {
+
+      letter = dsq[j];
+
+      if (letter >= abc->K && letter < abc->Kp) {
+        continue;
+      } else if ((letter < 0 || letter >= abc->Kp) && j != 0) {
+        fprintf(stderr, "Error f4_bwd(): Invalid symbol %d at position %d in the sequence.\n", letter, j);
+        return eslFAIL;
+      }
+
+      if (j == 0) letter = 0; // can use arbitrary values for theta_-1
 
       // calculate probabilities based on transition counts
       alpha_prob   = hmm->tp[i][f4H_ALPHA]   / (hmm->tp[i][f4H_ALPHA]   + hmm->tp[i][f4H_DELTA] + hmm->tp[i][f4H_GAMMA]);
@@ -381,7 +438,7 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **W_bar, double
         epsilon_prob1 = hmm->tp[i][f4H_EPSILONP] / (hmm->tp[i][f4H_EPSILON] + hmm->tp[i][f4H_EPSILONP]);
         if (isnan(epsilon_prob1)) epsilon_prob1 = 0.0;
 
-        S = (1 - alpha_prob - delta_prob) * letter_probs[i][dsq[j]] / background_probs[dsq[j]];
+        S = (1 - alpha_prob - delta_prob) * letter_probs[i][letter] / background_probs[letter];
 
         d_prime = delta_prob   * (1 - epsilon_prob1);
         e_prime = epsilon_prob * (1 - epsilon_prob1) / (1 - epsilon_prob);
@@ -399,7 +456,7 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **W_bar, double
       }
       */
       
-      W_bar[i][j] = x + d_prime * Y_bar[i+1][j] + a_prime * Z_bar[i][j+1] + 1;
+      W_bar[i][j] = x + d_prime * Y_bar[i+1][j] + a_prime * Z_bar[i][j+1] + wt; // weight is the score
       Y_bar[i][j] = W_bar[i][j] + e_prime * Y_bar[i+1][j];
       Z_bar[i][j] = W_bar[i][j] + b_prime * Z_bar[i][j+1];
     }
@@ -418,8 +475,7 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **W_bar, double
  *           Essentially, we calculate the expected counts of the parameters based on the forward and backward matrices.
  * 
  * Args:     hmm - the f4-HMM model (output will be stored in hmm->tp)
- *           dsq - the sequence to align
- *           wt - weight for the sequence
+ *           N - length of the sequence
  *           tr - the traceback structure (not used in this function)
  *           W_bar, Y_bar, Z_bar - matrices for the forward algorithm
  *           X, Y, Z - matrices for the backward algorithm
@@ -433,14 +489,13 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **W_bar, double
  *           converged under a specific threshold.
  */
 int
-f4_calculate_parameters(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, 
+f4_calculate_parameters(F4_HMM *hmm, int N, 
   double **W_bar, double **Y_bar, double **Z_bar,
   double **X, double **Y, double **Z,
   double v, double **letter_probs,
   int *termination_condition)
 {
   int M = hmm->M;
-  int N = tr->L;
 
   double alpha, beta, delta, epsilon;
   double gamma, betap, epsilonp;
@@ -509,24 +564,24 @@ f4_calculate_parameters(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr,
     }
     gamma /= v;
 
-    double threshold = 1e-5;
+    double threshold = 1e-4;
     *termination_condition &= 
-      fabs(alpha    * wt - hmm->tp[i-1][f4H_ALPHA])    < threshold &&
-      fabs(beta     * wt - hmm->tp[i-1][f4H_BETA])     < threshold &&
-      fabs(delta    * wt - hmm->tp[i-1][f4H_DELTA])    < threshold &&
-      fabs(epsilon  * wt - hmm->tp[i-1][f4H_EPSILON])  < threshold &&
-      fabs(gamma    * wt - hmm->tp[i-1][f4H_GAMMA])    < threshold &&
-      fabs(betap    * wt - hmm->tp[i-1][f4H_BETAP])    < threshold &&
-      fabs(epsilonp * wt - hmm->tp[i-1][f4H_EPSILONP]) < threshold;
+      fabs(alpha    - hmm->tp[i-1][f4H_ALPHA])    < threshold &&
+      fabs(beta     - hmm->tp[i-1][f4H_BETA])     < threshold &&
+      fabs(delta    - hmm->tp[i-1][f4H_DELTA])    < threshold &&
+      fabs(epsilon  - hmm->tp[i-1][f4H_EPSILON])  < threshold &&
+      fabs(gamma    - hmm->tp[i-1][f4H_GAMMA])    < threshold &&
+      fabs(betap    - hmm->tp[i-1][f4H_BETAP])    < threshold &&
+      fabs(epsilonp - hmm->tp[i-1][f4H_EPSILONP]) < threshold;
 
     // update the HMM parameters
-    hmm->tp[i-1][f4H_ALPHA]    = alpha    * wt;
-    hmm->tp[i-1][f4H_BETA]     = beta     * wt;
-    hmm->tp[i-1][f4H_DELTA]    = delta    * wt;
-    hmm->tp[i-1][f4H_EPSILON]  = epsilon  * wt;
-    hmm->tp[i-1][f4H_GAMMA]    = gamma    * wt;
-    hmm->tp[i-1][f4H_BETAP]    = betap    * wt;
-    hmm->tp[i-1][f4H_EPSILONP] = epsilonp * wt;
+    hmm->tp[i-1][f4H_ALPHA]    = alpha;
+    hmm->tp[i-1][f4H_BETA]     = beta;
+    hmm->tp[i-1][f4H_DELTA]    = delta;
+    hmm->tp[i-1][f4H_EPSILON]  = epsilon;
+    hmm->tp[i-1][f4H_GAMMA]    = gamma;
+    hmm->tp[i-1][f4H_BETAP]    = betap;
+    hmm->tp[i-1][f4H_EPSILONP] = epsilonp;
   }
   
   return eslOK;
@@ -565,10 +620,10 @@ f4_calculate_parameters(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr,
  *           treatment of sequence fragments.
  *
  * Args:     hmm   - counts-based HMM to count <tr> into
- *           tr    - alignment of seq to HMM
- *           dsq   - digitized sequence that traceback aligns to the HMM (1..L)
- *                   (or can be an ax, aligned digital seq)
- *           wt    - weight on this sequence
+ *           msa   - Multiple Sequence Alignment (MSA) structure
+ *           tr    - array of all alignments of seq to HMM
+ *           letter_probs - letter probabilities for the sequence
+ *           background_probs - background probabilities for the alphabet
  *           
  * Return:   <eslOK> on success.
  *           Weighted count events are accumulated in hmm's mat[][], ins[][],
@@ -581,15 +636,20 @@ f4_calculate_parameters(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr,
  *           Possibly, therefore, the parameters may not be fully converged.
  */
 int
-f4_trace_Estimate(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **letter_probs, double *background_probs)
+f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, double **letter_probs, double *background_probs)
 {
-  int M = hmm->M; // profile size
-  int N = tr->L;  // sequence length
+  int M = hmm->M;     // profile size
+  int N = tr[0]->L;   // sequence length (all are the same anyways)
+  float wt;           // weight for the sequences
+  int idx;            // index for sequences in the MSA
 
-  double **W_bar, **Y_bar, **Z_bar;  // backward
-  double **X, **Y, **Z;              // forward
-  double v;                          // variable to accumulate the sum of weights
+  double **W_bar, **Y_bar, **Z_bar;             // backward
+  double **X, **Y, **Z;                         // forward
+  double **W_bar_sum, **Y_bar_sum, **Z_bar_sum; // sums for W_bar, Y_bar, Z_bar
+  double **X_sum, **Y_sum, **Z_sum;             // sums for X, Y, Z
+  double v;                                     // variable to accumulate the sum of weights
 
+  bw_build(M, N, &W_bar_sum, &Y_bar_sum, &Z_bar_sum, &X_sum, &Y_sum, &Z_sum);
   bw_build(M, N, &W_bar, &Y_bar, &Z_bar, &X, &Y, &Z);
 
   int termination_condition = 1;
@@ -599,26 +659,56 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **le
 
     v = 0.0;
 
-    if (bw_zero(M, N, W_bar, Y_bar, Z_bar, X, Y, Z) != eslOK) {
+    if (bw_zero(M, N, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum) != eslOK) {
       bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
+      bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
       return eslEMEM;
     }
 
-    /* Forward pass, calculate X, Y, Z */
-    if (f4_fwd(hmm, dsq, wt, tr, X, Y, Z, M, N, letter_probs, background_probs, &v) != eslOK) {
-      bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-      return eslEINVAL;
-    }
+    for (idx = 0; idx < msa->nseq; idx++) {
 
-    /* Backward pass, calculate W_bar, Y_bar, Z_bar */
-    if (f4_bwd(hmm, dsq, wt, tr, W_bar, Y_bar, Z_bar, M, N, letter_probs, background_probs) != eslOK) {
-      bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-      return eslEINVAL;
+      wt = msa->wgt[idx];
+
+      if (bw_zero(M, N, W_bar, Y_bar, Z_bar, X, Y, Z) != eslOK) {
+        bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
+        bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
+        return eslEMEM;
+      }
+
+      /* Forward pass, calculate X, Y, Z */
+      if (f4_fwd(hmm, msa->ax[idx], wt, tr[idx], msa->abc, X, Y, Z, M, N, letter_probs, background_probs, &v) != eslOK) {
+        bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
+        bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
+        return eslEINVAL;
+      }
+
+      /* Backward pass, calculate W_bar, Y_bar, Z_bar */
+      if (f4_bwd(hmm, msa->ax[idx], wt, tr[idx], msa->abc, W_bar, Y_bar, Z_bar, M, N, letter_probs, background_probs) != eslOK) {
+        bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
+        bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
+        return eslEINVAL;
+      }
+
+      /* Accumulate the counts into the sums */
+      for (int i = 0; i <= M+1; i++) {
+        for (int j = 0; j <= N+1; j++) {
+          W_bar_sum[i][j] += W_bar[i][j];
+          Y_bar_sum[i][j] += Y_bar[i][j];
+          Z_bar_sum[i][j] += Z_bar[i][j];
+          X_sum[i][j]     += X[i][j];
+          Y_sum[i][j]     += Y[i][j];
+          Z_sum[i][j]     += Z[i][j];
+        }
+      }
     }
 
     /* Calculate and update parameters in hmm, determine termination condition */
-    if (f4_calculate_parameters(hmm, dsq, wt, tr, W_bar, Y_bar, Z_bar, X, Y, Z, v, letter_probs, &termination_condition) != eslOK) {
+    if (f4_calculate_parameters(hmm, N,
+                                W_bar_sum, Y_bar_sum, Z_bar_sum,
+                                X_sum, Y_sum, Z_sum,
+                                v, letter_probs, &termination_condition) != eslOK) {
       bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
+      bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
       return eslEINVAL;
     }
 
@@ -627,6 +717,7 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, double **le
   } while (!termination_condition && num_iterations < 50);
 
   bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
+  bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
   
   return eslOK;
 }
