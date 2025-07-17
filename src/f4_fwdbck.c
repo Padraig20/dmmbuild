@@ -504,18 +504,10 @@ f4_calculate_parameters(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr,
 
     // expected count of gamma
     gamma = 0.0;
-    // requires expected counts of letter_probs
-    for (int letter = 0; letter < hmm->abc->K; letter++) {
-      double letter_sum = 0.0;
-      for (int j = 1; j <= N; j++) {
-        if (dsq[j-1] == letter && i < M+1) {
-          letter_sum += X[i][j] * W_bar[i+1][j+1];
-        }
-      }
-      letter_sum /= v;
-      // now we can calculate gamma
-      gamma += letter_sum;
+    for (int j = 1; j <= N; j++) {
+      if (i < M+1) gamma += X[i][j] * W_bar[i+1][j+1];
     }
+    gamma /= v;
 
     double threshold = 1e-5;
     *termination_condition &= 
