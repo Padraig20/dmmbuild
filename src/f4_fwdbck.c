@@ -564,15 +564,14 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
     }
     gamma /= v;
 
-    double threshold = 1e-4;
     *termination_condition &= 
-      fabs(alpha    - hmm->tp[i-1][f4H_ALPHA])    < threshold &&
-      fabs(beta     - hmm->tp[i-1][f4H_BETA])     < threshold &&
-      fabs(delta    - hmm->tp[i-1][f4H_DELTA])    < threshold &&
-      fabs(epsilon  - hmm->tp[i-1][f4H_EPSILON])  < threshold &&
-      fabs(gamma    - hmm->tp[i-1][f4H_GAMMA])    < threshold &&
-      fabs(betap    - hmm->tp[i-1][f4H_BETAP])    < threshold &&
-      fabs(epsilonp - hmm->tp[i-1][f4H_EPSILONP]) < threshold;
+      fabs(alpha    - hmm->tp[i-1][f4H_ALPHA])    < f4_BW_CONVERGE &&
+      fabs(beta     - hmm->tp[i-1][f4H_BETA])     < f4_BW_CONVERGE &&
+      fabs(delta    - hmm->tp[i-1][f4H_DELTA])    < f4_BW_CONVERGE &&
+      fabs(epsilon  - hmm->tp[i-1][f4H_EPSILON])  < f4_BW_CONVERGE &&
+      fabs(gamma    - hmm->tp[i-1][f4H_GAMMA])    < f4_BW_CONVERGE &&
+      fabs(betap    - hmm->tp[i-1][f4H_BETAP])    < f4_BW_CONVERGE &&
+      fabs(epsilonp - hmm->tp[i-1][f4H_EPSILONP]) < f4_BW_CONVERGE;
 
     // update the HMM parameters
     hmm->tp[i-1][f4H_ALPHA]    = alpha;
@@ -714,7 +713,7 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, double **letter_prob
 
     num_iterations++;
 
-  } while (!termination_condition && num_iterations < 50);
+  } while (!termination_condition && num_iterations < f4_BW_MAXITER);
 
   bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
   bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
