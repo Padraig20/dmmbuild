@@ -301,29 +301,19 @@ f4_prior_Destroy(F4_PRIOR *pri)
   free(pri);
 }
 
-/*****************************************************************
- * 2. Creating probabilities from counts and priors.
- *****************************************************************/
-
-/* Function:  f4_ParameterEstimation()
+/* Function:  estimate_parameters()
  *
- * Purpose:   Given an <hmm> containing weighted counts of parameters, and
- *            a mixture Dirichlet prior <pri>: calculate mean
- *            posterior parameter estimates for all model parameters.
- *            From the parameters we get, we calculate the model parameters,
- *            which are the transition and emission probabilities,
- *            
- *            If <pri> is <NULL>, then model parameters are calculated
- *            as frequencies, by normalization of <hmm>.
- *            
- * Args:      hmm - profile structure, containing counts for alpha, beta,
- *            delta and epsilon.
- *            pri - mixture Dirichlet prior structure, or <NULL>.
- *            
+ * Purpose:   Estimates the parameters of a profile HMM from a prior.
+ * 
+ * Args:      hmm - the profile HMM to estimate parameters for.
+ *                  Outputs the parameters in <hmm->tp>.
+ *            pri - the prior to use for estimation. If NULL, the
+ *                  parameters are renormalized to frequencies.
+ * 
  * Returns:   <eslOK> on success.
  */
 int
-f4_ParameterEstimation(F4_HMM *hmm, const F4_PRIOR *pri)
+estimate_parameters(F4_HMM *hmm, const F4_PRIOR *pri)
 {
   int   k;
   double c[f4_MAXABET];
@@ -361,6 +351,54 @@ f4_ParameterEstimation(F4_HMM *hmm, const F4_PRIOR *pri)
     esl_vec_D2F(p, 2, hmm->tp[k]+5);
   }
 
+  return eslOK;
+}
+
+/* Function:  estimate_emissions()
+ *
+ * Purpose:   Estimates the emissions of a profile HMM from a prior.
+ * 
+ * Args:      hmm - the profile HMM to estimate emissions for.
+ *                  Outputs the emissions in <hmm->mat> and <hmm->ins>.
+ *            pri - the prior to use for estimation. If NULL, the
+ *                  parameters are renormalized to frequencies.
+ * 
+ * Returns:   <eslOK> on success.
+ */
+int
+estimate_emissions(F4_HMM *hmm, const F4_PRIOR *pri)
+{
+  int   k;
+  double c[f4_MAXABET];
+  double p[f4_MAXABET];
+
+  /* Match emissions, 1..M
+   * Convention sets mat[0] to a valid pvector: first elem 1, the rest 0.
+   */
+  for (k = 1; k <= hmm->M; k++) {
+    esl_vec_F2D(hmm->mat[k], hmm->abc->K, c);
+    esl_mixdchlet_MPParameters(pri->em, c, p);
+    esl_vec_D2F(p, hmm->abc->K, hmm->mat[k]);
+  }
+  esl_vec_FSet(hmm->mat[0], hmm->abc->K, 0.);
+  hmm->mat[0][0] = 1.0;
+
+  /* Insert emissions 0..M
+   */
+  for (k = 0; k <= hmm->M; k++) {
+    esl_vec_F2D(hmm->ins[k], hmm->abc->K, c);
+    esl_mixdchlet_MPParameters(pri->ei, c, p);
+    esl_vec_D2F(p, hmm->abc->K, hmm->ins[k]);
+  }
+
+  return eslOK;
+}
+
+int
+calculate_transitions(F4_HMM *hmm)
+{
+  int k;
+
   /* Match transitions 0,1..M: 0 is the B state
    * TMD at node M is 0.
    */
@@ -391,24 +429,39 @@ f4_ParameterEstimation(F4_HMM *hmm, const F4_PRIOR *pri)
   }
   hmm->t[0][f4H_DM] = hmm->t[hmm->M][f4H_DM] = 1.0;
   hmm->t[0][f4H_DD] = hmm->t[hmm->M][f4H_DD] = 0.0;
+  return eslOK;
+}
 
-  /* Match emissions, 1..M
-   * Convention sets mat[0] to a valid pvector: first elem 1, the rest 0.
-   */
-  for (k = 1; k <= hmm->M; k++) {
-    esl_vec_F2D(hmm->mat[k], hmm->abc->K, c);
-    esl_mixdchlet_MPParameters(pri->em, c, p);
-    esl_vec_D2F(p, hmm->abc->K, hmm->mat[k]);
-  }
-  esl_vec_FSet(hmm->mat[0], hmm->abc->K, 0.);
-  hmm->mat[0][0] = 1.0;
+/*****************************************************************
+ * 2. Creating probabilities from counts and priors.
+ *****************************************************************/
 
-  /* Insert emissions 0..M
-   */
-  for (k = 0; k <= hmm->M; k++) {
-    esl_vec_F2D(hmm->ins[k], hmm->abc->K, c);
-    esl_mixdchlet_MPParameters(pri->ei, c, p);
-    esl_vec_D2F(p, hmm->abc->K, hmm->ins[k]);
-  }
+/* Function:  f4_ParameterEstimation()
+ *
+ * Purpose:   Given an <hmm> containing weighted counts of parameters, and
+ *            a mixture Dirichlet prior <pri>: calculate mean
+ *            posterior parameter estimates for all model parameters.
+ *            From the parameters we get, we calculate the model parameters,
+ *            which are the transition and emission probabilities,
+ *            
+ *            If <pri> is <NULL>, then model parameters are calculated
+ *            as frequencies, by normalization of <hmm>.
+ *            
+ * Args:      hmm - profile structure, containing counts for alpha, beta,
+ *            delta and epsilon.
+ *            pri - mixture Dirichlet prior structure, or <NULL>.
+ *            
+ * Returns:   <eslOK> on success.
+ */
+int
+f4_ParameterEstimation(F4_HMM *hmm, const F4_PRIOR *pri)
+{
+  int status;
+
+  if ((status = estimate_parameters(hmm, pri)) != eslOK) return status;
+  if ((status = calculate_transitions(hmm)) != eslOK) return status;
+
+  if ((status = estimate_emissions(hmm, pri)) != eslOK) return status;
+
   return eslOK;
 }
