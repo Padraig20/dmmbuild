@@ -304,8 +304,10 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
   double alpha_prob, beta_prob, delta_prob, epsilon_prob, epsilon_prob1; // counts to probabilities
   double w;
   int letter;
+  int pos;
 
   for (int i = 1; i <= M+1; i++) {
+    pos = 1;
     for (int j = 1; j <= N+1; j++) {
 
       letter = dsq[j];
@@ -347,20 +349,14 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
         if (isnan(e_prime)) e_prime = 0.0; // Avoid NaN issues
       }
 
-      w = X[i-1][j-1] + Y[i-1][j] + Z[i][j-1] + wt; // weight is the score
+      w = X[i-1][pos-1] + Y[i-1][pos] + Z[i][pos-1] + wt; // weight is the score
       *w_sum += w;
-
-      /* Sanity check: ensure no NaN values in the parameters */
-      /*if (isnan(w) || isnan(S) || isnan(a_prime) || isnan(b_prime) || isnan(d_prime) || isnan(e_prime)) {
-        fprintf(stderr, "Error: NaN detected at i=%d, j=%d (w=%f, S=%f, a_prime=%f, b_prime=%f, d_prime=%f, e_prime=%f)\n", 
-            i, j, w, S, a_prime, b_prime, d_prime, e_prime);
-        abort();
-      }
-      */
       
-      X[i][j] = S * w;
-      Y[i][j] = d_prime * w + e_prime * Y[i-1][j];
-      Z[i][j] = a_prime * w + b_prime * Z[i][j-1];
+      X[i][pos] = S * w;
+      Y[i][pos] = d_prime * w + e_prime * Y[i-1][pos];
+      Z[i][pos] = a_prime * w + b_prime * Z[i][pos-1];
+
+      pos++; // increment if not a gap or missing symbol
     }
   }
 
@@ -401,8 +397,10 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
   double alpha_prob, beta_prob, delta_prob, epsilon_prob, epsilon_prob1; // counts to probabilities
   double x;
   int letter;
+  int pos;
 
   for (int i = M; i >= 0; i--) {
+    pos = N;
     for (int j = N; j >= 0; j--) {
 
       letter = dsq[j];
@@ -445,20 +443,13 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
         if (isnan(e_prime)) e_prime = 0.0; // avoid NaN issues
       }
 
-      x = S * W_bar[i+1][j+1];
-
-      /* Sanity check: ensure no NaN values in the parameters */
-      /*
-      if (isnan(x) || isnan(S) || isnan(a_prime) || isnan(b_prime) || isnan(d_prime) || isnan(e_prime)) {
-        printf("Error: NaN detected at i=%d, j=%d (w=%f, S=%f, a_prime=%f, b_prime=%f, d_prime=%f, e_prime=%f)\n", 
-            i, j, x, S, a_prime, b_prime, d_prime, e_prime);
-        abort();
-      }
-      */
+      x = S * W_bar[i+1][pos+1];
       
-      W_bar[i][j] = x + d_prime * Y_bar[i+1][j] + a_prime * Z_bar[i][j+1] + wt; // weight is the score
-      Y_bar[i][j] = W_bar[i][j] + e_prime * Y_bar[i+1][j];
-      Z_bar[i][j] = W_bar[i][j] + b_prime * Z_bar[i][j+1];
+      W_bar[i][pos] = x + d_prime * Y_bar[i+1][pos] + a_prime * Z_bar[i][pos+1] + wt; // weight is the score
+      Y_bar[i][pos] = W_bar[i][pos] + e_prime * Y_bar[i+1][pos];
+      Z_bar[i][pos] = W_bar[i][pos] + b_prime * Z_bar[i][pos+1];
+
+      pos--; // increment if not a gap or missing symbol
     }
   }
 
