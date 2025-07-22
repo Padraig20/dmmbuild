@@ -52,8 +52,8 @@ enum f4_evparams_e {    f4_MMU  = 0, f4_MLAMBDA = 1,     f4_VMU = 2,  f4_VLAMBDA
 enum f4_cutoffs_e  {     f4_GA1 = 0,     f4_GA2 = 1,     f4_TC1 = 2,      f4_TC2 = 3,  f4_NC1 = 4,     f4_NC2 = 5 };
 
 /* Baum-Welch Algorithm */
-#define f4_BW_MAXITER 50
-#define f4_BW_CONVERGE 0.0001
+#define f4_BW_MAXITER 100
+#define f4_BW_CONVERGE 1e-6
 
 /*****************************************************************
  * 1. Miscellaneous functions

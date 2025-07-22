@@ -480,6 +480,26 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
   return eslOK;
 }
 
+int determine_termination_condition(F4_HMM *old, F4_HMM *new)
+{
+
+  for (int i = 0; i <= old->M; i++) {
+    if (
+      fabs(old->tp[i][f4H_ALPHA]    - new->tp[i][f4H_ALPHA])    >= f4_BW_CONVERGE ||
+      fabs(old->tp[i][f4H_BETA]     - new->tp[i][f4H_BETA])     >= f4_BW_CONVERGE ||
+      fabs(old->tp[i][f4H_DELTA]    - new->tp[i][f4H_DELTA])    >= f4_BW_CONVERGE ||
+      fabs(old->tp[i][f4H_EPSILON]  - new->tp[i][f4H_EPSILON])  >= f4_BW_CONVERGE ||
+      fabs(old->tp[i][f4H_GAMMA]    - new->tp[i][f4H_GAMMA])    >= f4_BW_CONVERGE ||
+      fabs(old->tp[i][f4H_BETAP]    - new->tp[i][f4H_BETAP])    >= f4_BW_CONVERGE ||
+      fabs(old->tp[i][f4H_EPSILONP] - new->tp[i][f4H_EPSILONP]) >= f4_BW_CONVERGE
+    ) {
+      return 0;  // not converged
+    }
+  }
+
+  return 1;  // converged
+}
+
 /*****************************************************************
  * 4. Parameter estimation.
  *****************************************************************/
@@ -496,20 +516,15 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
  *           X, Y, Z - matrices for the backward algorithm
  *           v - the sum of weights from the forward algorithm
  *           letter_probs - letter probabilities for the sequence
- *           termination_condition - pointer to an integer that will be updated with the termination condition
  *           param_counts - matrix to accumulate the estimated parameters (output will be stored here)
  * 
  * Returns:  <eslOK> on success.
- * 
- * Note:     The termination condition is updated to indicate whether the parameters have
- *           converged under a specific threshold.
  */
 int
 f4_calculate_parameters(F4_HMM *hmm, int N, 
   double **W_bar, double **Y_bar, double **Z_bar,
   double **X, double **Y, double **Z,
-  double v, double **letter_probs,
-  int *termination_condition, F4_HMM *param_counts)
+  double v, double **letter_probs, F4_HMM *param_counts)
 {
   int M = hmm->M;
 
@@ -582,15 +597,6 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
       if (i < M+1) gamma += X[i][j] * W_bar[i+1][j+1];
     }
     gamma /= v;
-
-    *termination_condition &= 
-      fabs(alpha    - hmm->tp[i-1][f4H_ALPHA])    < f4_BW_CONVERGE &&
-      fabs(beta     - hmm->tp[i-1][f4H_BETA])     < f4_BW_CONVERGE &&
-      fabs(delta    - hmm->tp[i-1][f4H_DELTA])    < f4_BW_CONVERGE &&
-      fabs(epsilon  - hmm->tp[i-1][f4H_EPSILON])  < f4_BW_CONVERGE &&
-      fabs(gamma    - hmm->tp[i-1][f4H_GAMMA])    < f4_BW_CONVERGE &&
-      fabs(betap    - hmm->tp[i-1][f4H_BETAP])    < f4_BW_CONVERGE &&
-      fabs(epsilonp - hmm->tp[i-1][f4H_EPSILONP]) < f4_BW_CONVERGE;
 
     // update the HMM parameters
     param_counts->tp[i-1][f4H_ALPHA]    += alpha;
@@ -675,7 +681,8 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, double **letter_prob
     return eslEMEM; // memory allocation failure
   }
 
-  int termination_condition = 1;
+  /* Needed to determine termination. */
+  int termination_condition;
   int num_iterations        = 0;
 
   do {
@@ -704,18 +711,19 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, double **letter_prob
         return eslEINVAL;
       }
 
-      /* Calculate and update parameters in hmm, determine termination condition */
+      /* Calculate and update parameters in hmm */
       if (f4_calculate_parameters(hmm, N,
                                   W_bar, Y_bar, Z_bar,
                                   X, Y, Z,
-                                  v, letter_probs, &termination_condition, param_counts) != eslOK) {
+                                  v, letter_probs, param_counts) != eslOK) {
         bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
         f4_hmm_Destroy(param_counts);
         return eslEINVAL;
       }
     }
 
-    /* Save the aggregated parameter counts to the HMM. */
+    /* Determine termination condition. Then save the aggregated parameter counts to the HMM. */
+    termination_condition = determine_termination_condition(hmm, param_counts);
     param_counts_save_to_hmm(hmm, param_counts);
     num_iterations++;
 
