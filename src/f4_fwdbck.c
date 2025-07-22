@@ -104,9 +104,9 @@ bw_destroy(int M,
  *           W_bar, Y_bar, Z_bar - matrices to zero
  *           X, Y, Z - matrices to zero
  * 
- * Returns:  <eslOK> on success.
+ * Returns:  (void)
  */
-int
+void
 bw_zero(int M, int L, 
         double **W_bar, double **Y_bar, double **Z_bar, 
         double **X, double **Y, double **Z)
@@ -121,7 +121,97 @@ bw_zero(int M, int L,
       Z[k][l]     = 0.0;
     }
   }
+}
+
+/* Function: param_counts_build()
+ *
+ * Purpose:  Allocate and initialize the parameter counts array.
+ * 
+ * Args:     M - length of the profile (number of states in the HMM)
+ *           N - length of the sequence
+ *           ret_param_counts - RETURN: pointer to the parameter counts array
+ *
+ * Returns:  <eslOK> on success.
+ *           <eslEMEM> on memory allocation failure.
+ */
+int
+param_counts_build(int M, int N, double ***ret_param_counts)
+{
+  double **param_counts = malloc((M+1) * sizeof(double*));
+  if (!param_counts) return eslEMEM;
+  for (int i = 0; i <= M; i++) {
+    param_counts[i] = calloc(f4H_NPARAMS, sizeof(double));
+    if (!param_counts[i]) {
+      for (int j = 0; j < i; j++) free(param_counts[j]);
+      free(param_counts);
+      return eslEMEM;
+    }
+  }
+  if (ret_param_counts) *ret_param_counts = param_counts;
   return eslOK;
+}
+
+/* Function: param_counts_destroy()
+ * 
+ * Purpose:  Free the parameter counts array.
+ * 
+ * Args:     M - length of the profile (number of states in the HMM)
+ *           param_counts - parameter counts array to free
+ * 
+ * Returns:  (void)
+ */
+void
+param_counts_destroy(int M, double **param_counts)
+{
+  if (param_counts) {
+    for (int i = 0; i <= M; i++) free(param_counts[i]);
+    free(param_counts);
+  }
+}
+
+/* Function: param_counts_zero()
+ * 
+ * Purpose:  Initialize the parameter counts array to zero.
+ * 
+ * Args:     M - length of the profile (number of states in the HMM)
+ *           param_counts - parameter counts array to zero
+ * 
+ * Returns:  (void)
+ */
+void
+param_counts_zero(int M, double **param_counts)
+{
+  for (int i = 0; i <= M; i++) {
+    for (int j = 0; j < f4H_NPARAMS; j++) {
+      param_counts[i][j] = 0.0;
+    }
+  }
+}
+
+/* Function: param_counts_save_to_hmm()
+ *
+ * Purpose:  Save the parameter counts into the HMM structure.
+ * 
+ * Args:     hmm - the HMM structure to save the counts into
+ *           param_counts - the parameter counts array to save
+ * 
+ * Returns:  (void)
+ */
+void
+param_counts_save_to_hmm(F4_HMM *hmm, double **param_counts)
+{
+  int k;
+
+  /* Save the parameter counts into the HMM structure */
+  for (k = 0; k <= hmm->M; k++) {
+    hmm->tp[k][f4H_ALPHA]    = param_counts[k][f4H_ALPHA];
+    hmm->tp[k][f4H_BETA]     = param_counts[k][f4H_BETA];
+    hmm->tp[k][f4H_DELTA]    = param_counts[k][f4H_DELTA];
+    hmm->tp[k][f4H_EPSILON]  = param_counts[k][f4H_EPSILON];
+    hmm->tp[k][f4H_GAMMA]    = param_counts[k][f4H_GAMMA];
+    hmm->tp[k][f4H_BETAP]    = param_counts[k][f4H_BETAP];
+    hmm->tp[k][f4H_EPSILONP] = param_counts[k][f4H_EPSILONP];
+  }
 }
 
 /*****************************************************************
@@ -465,7 +555,7 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
  * Purpose:  Estimate the parameters of the f4-HMM using the counts from the forward and backward procedures.
  *           Essentially, we calculate the expected counts of the parameters based on the forward and backward matrices.
  * 
- * Args:     hmm - the f4-HMM model (output will be stored in hmm->tp)
+ * Args:     hmm - the f4-HMM model (parameter transition probabilities are read from here)
  *           N - length of the sequence
  *           tr - the traceback structure (not used in this function)
  *           W_bar, Y_bar, Z_bar - matrices for the forward algorithm
@@ -473,6 +563,7 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
  *           v - the sum of weights from the forward algorithm
  *           letter_probs - letter probabilities for the sequence
  *           termination_condition - pointer to an integer that will be updated with the termination condition
+ *           param_counts - matrix to accumulate the estimated parameters (output will be stored here)
  * 
  * Returns:  <eslOK> on success.
  * 
@@ -484,7 +575,7 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
   double **W_bar, double **Y_bar, double **Z_bar,
   double **X, double **Y, double **Z,
   double v, double **letter_probs,
-  int *termination_condition)
+  int *termination_condition, double **param_counts)
 {
   int M = hmm->M;
 
@@ -508,6 +599,7 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
     }
     beta /= v;
     beta -= betap;
+    if (beta < 0.0) printf("Warning: Negative beta count at position %d.\n", i);
 
     // expected count of (1 - epsilon)
     epsilonp = 0.0;
@@ -523,6 +615,7 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
     }
     epsilon /= v;
     epsilon -= epsilonp;
+    if (epsilon < 0.0) printf("Warning: Negative epsilon count at position %d.\n", i);
 
     // expected count of alpha
     alpha = betap;
@@ -547,6 +640,7 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
     }
     // now we can calculate delta
     delta = epsilonp_i1 + epsilon_i1 - epsilon;
+    if (delta < 0.0) printf("Warning: Negative delta count at position %d.\n", i);
 
     // expected count of gamma
     gamma = 0.0;
@@ -565,13 +659,13 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
       fabs(epsilonp - hmm->tp[i-1][f4H_EPSILONP]) < f4_BW_CONVERGE;
 
     // update the HMM parameters
-    hmm->tp[i-1][f4H_ALPHA]    = alpha;
-    hmm->tp[i-1][f4H_BETA]     = beta;
-    hmm->tp[i-1][f4H_DELTA]    = delta;
-    hmm->tp[i-1][f4H_EPSILON]  = epsilon;
-    hmm->tp[i-1][f4H_GAMMA]    = gamma;
-    hmm->tp[i-1][f4H_BETAP]    = betap;
-    hmm->tp[i-1][f4H_EPSILONP] = epsilonp;
+    param_counts[i-1][f4H_ALPHA]    += alpha;
+    param_counts[i-1][f4H_BETA]     += beta;
+    param_counts[i-1][f4H_DELTA]    += delta;
+    param_counts[i-1][f4H_EPSILON]  += epsilon;
+    param_counts[i-1][f4H_GAMMA]    += gamma;
+    param_counts[i-1][f4H_BETAP]    += betap;
+    param_counts[i-1][f4H_EPSILONP] += epsilonp;
   }
   
   return eslOK;
@@ -622,7 +716,7 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
  * Throws:   <eslEINVAL> if something's corrupt in the trace; effect on hmm
  *           counts is undefined, because it may abort at any point in the trace.
  *
- * Notes:    We stop after 50 iterations or when the termination condition is met.
+ * Notes:    We stop after a certain number of iterations or when the termination condition is met.
  *           Possibly, therefore, the parameters may not be fully converged.
  */
 int
@@ -633,81 +727,62 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, double **letter_prob
   float wt;           // weight for the sequences
   int idx;            // index for sequences in the MSA
 
-  double **W_bar, **Y_bar, **Z_bar;             // backward
-  double **X, **Y, **Z;                         // forward
-  double **W_bar_sum, **Y_bar_sum, **Z_bar_sum; // sums for W_bar, Y_bar, Z_bar
-  double **X_sum, **Y_sum, **Z_sum;             // sums for X, Y, Z
-  double v;                                     // variable to accumulate the sum of weights
+  double **W_bar, **Y_bar, **Z_bar; // backward
+  double **X, **Y, **Z;             // forward
+  double **param_counts;            // parameter counts for the HMM
+  double v;                         // variable to accumulate the sum of weights
 
-  bw_build(M, N, &W_bar_sum, &Y_bar_sum, &Z_bar_sum, &X_sum, &Y_sum, &Z_sum);
   bw_build(M, N, &W_bar, &Y_bar, &Z_bar, &X, &Y, &Z);
+  param_counts_build(M, N, &param_counts);
 
   int termination_condition = 1;
   int num_iterations        = 0;
 
   do {
 
-    v = 0.0;
-
-    if (bw_zero(M, N, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum) != eslOK) {
-      bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-      bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
-      return eslEMEM;
-    }
+    /* We aggregate the counts over all sequences. */
+    param_counts_zero(M, param_counts);
 
     for (idx = 0; idx < msa->nseq; idx++) {
 
+      bw_zero(M, N, W_bar, Y_bar, Z_bar, X, Y, Z);
+
       wt = msa->wgt[idx];
 
-      if (bw_zero(M, N, W_bar, Y_bar, Z_bar, X, Y, Z) != eslOK) {
-        bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-        bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
-        return eslEMEM;
-      }
-
-      /* Forward pass, calculate X, Y, Z */
+      /* Forward pass, calculate X, Y, Z and the aggregated v (i.e. sum of w-values) */
+      v = 0.0;
       if (f4_fwd(hmm, msa->ax[idx], wt, tr[idx], msa->abc, X, Y, Z, M, N, letter_probs, background_probs, &v) != eslOK) {
         bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-        bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
+        param_counts_destroy(M, param_counts);
         return eslEINVAL;
       }
 
       /* Backward pass, calculate W_bar, Y_bar, Z_bar */
       if (f4_bwd(hmm, msa->ax[idx], wt, tr[idx], msa->abc, W_bar, Y_bar, Z_bar, M, N, letter_probs, background_probs) != eslOK) {
         bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-        bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
+        param_counts_destroy(M, param_counts);
         return eslEINVAL;
       }
 
-      /* Accumulate the counts into the sums */
-      for (int i = 0; i <= M+1; i++) {
-        for (int j = 0; j <= N+1; j++) {
-          W_bar_sum[i][j] += W_bar[i][j];
-          Y_bar_sum[i][j] += Y_bar[i][j];
-          Z_bar_sum[i][j] += Z_bar[i][j];
-          X_sum[i][j]     += X[i][j];
-          Y_sum[i][j]     += Y[i][j];
-          Z_sum[i][j]     += Z[i][j];
-        }
+      /* Calculate and update parameters in hmm, determine termination condition */
+      if (f4_calculate_parameters(hmm, N,
+                                  W_bar, Y_bar, Z_bar,
+                                  X, Y, Z,
+                                  v, letter_probs, &termination_condition, param_counts) != eslOK) {
+        bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
+        param_counts_destroy(M, param_counts);
+        return eslEINVAL;
       }
     }
 
-    /* Calculate and update parameters in hmm, determine termination condition */
-    if (f4_calculate_parameters(hmm, N,
-                                W_bar_sum, Y_bar_sum, Z_bar_sum,
-                                X_sum, Y_sum, Z_sum,
-                                v, letter_probs, &termination_condition) != eslOK) {
-      bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-      bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
-      return eslEINVAL;
-    }
-
+    /* Save the aggregated parameter counts to the HMM. */
+    param_counts_save_to_hmm(hmm, param_counts);
     num_iterations++;
 
   } while (!termination_condition && num_iterations < f4_BW_MAXITER);
 
   bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-  bw_destroy(M, W_bar_sum, Y_bar_sum, Z_bar_sum, X_sum, Y_sum, Z_sum);
+  param_counts_destroy(M, param_counts);
   
   return eslOK;
 }
