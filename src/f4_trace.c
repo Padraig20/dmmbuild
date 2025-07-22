@@ -687,7 +687,7 @@ f4_trace_Count(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr)
 	  {
 	    hmm->tp[0][f4H_DELTA] += wt; //MD
 	    for (ktmp = 1; ktmp < k2-1; ktmp++) {
-	      hmm->tp[ktmp][f4H_EPSILON] += wt; hmm->tp[ktmp][f4H_DELTA] += wt; hmm->tp[ktmp][f4H_EPSILONP] += wt; //DD
+	      hmm->tp[ktmp][f4H_EPSILON]  += wt; hmm->tp[ktmp][f4H_DELTA] += wt; hmm->tp[ktmp][f4H_EPSILONP] += wt; //DD
 	      hmm->tp[ktmp][f4H_EPSILONP] += wt; hmm->tp[ktmp][f4H_GAMMA] += wt; //DM
       }
 	  }
@@ -702,28 +702,28 @@ f4_trace_Count(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr)
       }
       else if (st == f4T_M) {
      	switch (st2) {
-	case f4T_M: hmm->tp[0][f4H_GAMMA] += wt; break; //MM
+	case f4T_M: hmm->tp[k][f4H_GAMMA] += wt; break; //MM
 	case f4T_I: hmm->tp[k][f4H_ALPHA] += wt; break; //MI
 	case f4T_D: hmm->tp[k][f4H_DELTA] += wt; break; //MD
-	case f4T_E: hmm->tp[0][f4H_GAMMA] += wt; break; /* k==M. A local alignment would've been Mk->X->E. */ //MM
+	case f4T_E: hmm->tp[k][f4H_GAMMA] += wt; break; /* k==M. A local alignment would've been Mk->X->E. */ //MM
 	default:     ESL_EXCEPTION(eslEINVAL, "bad transition in trace");
 	}
       }
       else if (st == f4T_I) {
 	switch (st2) {
-	case f4T_M: hmm->tp[k][f4H_BETAP] += wt; hmm->tp[k][f4H_GAMMA] += wt; break; //IM
-	case f4T_I: hmm->tp[k][f4H_BETA] += wt; hmm->tp[k][f4H_ALPHA] += wt; hmm->tp[k][f4H_BETAP] += wt; break; //II
-	case f4T_E: hmm->tp[k][f4H_GAMMA] += wt; hmm->tp[k][f4H_BETAP] += wt; break; /* k==M. */ //IM
-  case f4T_D: hmm->tp[k][f4H_DELTA] += wt; hmm->tp[k][f4H_BETAP] += wt; break; /* Add this for f4-HMM */ //ID
+	case f4T_M: hmm->tp[k][f4H_BETAP] += wt; hmm->tp[k][f4H_GAMMA]  += wt; break; //IM
+	case f4T_I: hmm->tp[k][f4H_BETA]  += wt; hmm->tp[k][f4H_ALPHA] += wt; hmm->tp[k][f4H_BETAP] += wt; break; //II
+	case f4T_E: hmm->tp[k][f4H_GAMMA] += wt; hmm->tp[k][f4H_BETAP]  += wt; break; /* k==M. */ //IM
+  case f4T_D: hmm->tp[k][f4H_DELTA] += wt; hmm->tp[k][f4H_BETAP]  += wt; break; /* Add this for f4-HMM */ //ID
 	default:     ESL_EXCEPTION(eslEINVAL, "bad transition in trace");
 	}
       }
       else if (st == f4T_D) {
 	switch (st2) {
-	case f4T_M: hmm->tp[k][f4H_EPSILONP] += wt; hmm->tp[k][f4H_GAMMA] += wt; break; //DM
-	case f4T_D: hmm->tp[k][f4H_EPSILON] += wt; hmm->tp[k][f4H_DELTA] += wt; hmm->tp[k][f4H_EPSILONP] += wt; break; //DD
-	case f4T_E: hmm->tp[k][f4H_GAMMA] += wt; hmm->tp[k][f4H_EPSILONP] += wt; break; /* k==M. A local alignment would've been Dk->X->E. */ //DM
-  case f4T_I: hmm->tp[k][f4H_ALPHA] += wt; hmm->tp[k][f4H_EPSILONP] += wt; break; /* Add this for f4-HMM */ //DI
+	case f4T_M: hmm->tp[k][f4H_EPSILONP] += wt; hmm->tp[k][f4H_GAMMA]    += wt; break; //DM
+	case f4T_D: hmm->tp[k][f4H_EPSILON]  += wt; hmm->tp[k][f4H_DELTA]    += wt; hmm->tp[k][f4H_EPSILONP] += wt; break; //DD
+	case f4T_E: hmm->tp[k][f4H_GAMMA]    += wt; hmm->tp[k][f4H_EPSILONP] += wt; break; /* k==M. A local alignment would've been Dk->X->E. */ //DM
+  case f4T_I: hmm->tp[k][f4H_ALPHA]    += wt; hmm->tp[k][f4H_EPSILONP] += wt; break; /* Add this for f4-HMM */ //DI
 	default:     ESL_EXCEPTION(eslEINVAL, "bad transition in trace");
 	}
       }
