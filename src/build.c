@@ -18,7 +18,7 @@
 #include "dummer.h"
 
 static int do_modelmask( ESL_MSA *msa);
-static int matassign2hmm(ESL_MSA *msa, int *matassign, F4_HMM **ret_hmm, F4_TRACE ***opt_tr);
+static int matassign2hmm(ESL_MSA *msa, int *matassign, F4_HMM **ret_hmm, F4_TRACE ***opt_tr, const F4_PRIOR *pri);
 static int annotate_model(F4_HMM *hmm, int *matassign, ESL_MSA *msa);
 
 /*****************************************************************
@@ -103,7 +103,7 @@ f4_Fastmodelmaker(ESL_MSA *msa, float symfrac, F4_BUILDER *bld, F4_HMM **ret_hmm
    * the same; matassign2hmm() does this stuff (traceback construction,
    * trace counting) and sets up ret_hmm and opt_tr.
    */
-  if ((status = matassign2hmm(msa, matassign, ret_hmm, opt_tr)) != eslOK) {
+  if ((status = matassign2hmm(msa, matassign, ret_hmm, opt_tr, bld->prior)) != eslOK) {
     fprintf (stderr, "hmm construction error during trace counting\n");
     goto ERROR;
   }
@@ -167,7 +167,7 @@ do_modelmask( ESL_MSA *msa)
  *           ret_hmm and opt_tr alloc'ed here.
  */
 static int
-matassign2hmm(ESL_MSA *msa, int *matassign, F4_HMM **ret_hmm, F4_TRACE ***opt_tr)
+matassign2hmm(ESL_MSA *msa, int *matassign, F4_HMM **ret_hmm, F4_TRACE ***opt_tr, const F4_PRIOR *pri)
 {
   int        status;		/* return status                       */
   F4_HMM    *hmm = NULL;        /* RETURN: new hmm                     */
@@ -216,7 +216,7 @@ matassign2hmm(ESL_MSA *msa, int *matassign, F4_HMM **ret_hmm, F4_TRACE ***opt_tr
 
   if ((status = letter_probs_normalize(hmm->M, msa->abc->K, letter_probs, background_probs))             != eslOK) goto ERROR;
 
-  if ((status = f4_trace_Estimate(hmm, msa, tr, letter_probs, background_probs)) != eslOK) goto ERROR;
+  if ((status = f4_trace_Estimate(hmm, msa, tr, pri, letter_probs, background_probs)) != eslOK) goto ERROR;
 
   letter_probs_destroy(hmm->M, letter_probs, background_probs);
 

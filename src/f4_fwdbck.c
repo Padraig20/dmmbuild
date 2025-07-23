@@ -457,7 +457,7 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
         d_prime = 0.0;
         e_prime = 0.0;
       } else {
-        epsilon_prob1 = hmm->tp[i][f4H_EPSILONP] / (hmm->tp[i][f4H_EPSILON] + hmm->tp[i][f4H_EPSILONP]);
+        epsilon_prob1 = hmm->tp[i][f4H_EPSILON] / (hmm->tp[i][f4H_EPSILON] + hmm->tp[i][f4H_EPSILONP]);
         if (isnan(epsilon_prob1)) epsilon_prob1 = 0.0;
 
         S = (1 - alpha_prob - delta_prob) * letter_probs[i-1][letter] / background_probs[letter];
@@ -535,12 +535,12 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
       a_prime = alpha_prob * (1.0 - beta_prob);
       b_prime = beta_prob;
 
-      if (i == M+1) { // can use arbitrary values for S_m, d_m, e_m
+      if (i == M) { // can use arbitrary values for S_m, d_m, e_m
         S       = 0.0;
         d_prime = 0.0;
         e_prime = 0.0;
       } else {
-        epsilon_prob1 = hmm->tp[i][f4H_EPSILONP] / (hmm->tp[i][f4H_EPSILON] + hmm->tp[i][f4H_EPSILONP]);
+        epsilon_prob1 = hmm->tp[i+1][f4H_EPSILON] / (hmm->tp[i+1][f4H_EPSILON] + hmm->tp[i+1][f4H_EPSILONP]);
         if (isnan(epsilon_prob1)) epsilon_prob1 = 0.0;
 
         S = (1 - alpha_prob - delta_prob) * letter_probs[i][letter] / background_probs[letter];
@@ -742,7 +742,7 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
  *           Possibly, therefore, the parameters may not be fully converged.
  */
 int
-f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, double **letter_probs, double *background_probs)
+f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri, double **letter_probs, double *background_probs)
 {
   int M = hmm->M;     // profile size
   int N = tr[0]->L;   // sequence length (all are the same anyways)

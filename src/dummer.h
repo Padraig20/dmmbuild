@@ -416,7 +416,8 @@ extern F4_PRIOR  *f4_prior_CreateNucleic(void);
 extern F4_PRIOR  *f4_prior_CreateLaplace(const ESL_ALPHABET *abc);
 extern void       f4_prior_Destroy(F4_PRIOR *pri);
 
-extern int        f4_ParameterEstimation(F4_HMM *hmm, const F4_PRIOR *pri);
+extern int f4_ParameterEstimation(F4_HMM *hmm, const F4_PRIOR *pri);
+extern int estimate_parameters(F4_HMM *hmm, const F4_PRIOR *pri);
 
 /* f4_trace.c */
 extern F4_TRACE *f4_trace_Create(void);
@@ -431,7 +432,7 @@ extern int  f4_trace_FauxFromMSA(ESL_MSA *msa, int *matassign, int optflags, F4_
 extern int  f4_trace_Count(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr);
 
 /* f4_fwdbck.c */
-extern int  f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, double **letter_probs, double *background_probs);
+extern int  f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri, double **letter_probs, double *background_probs);
 extern int  letter_probs_build(int profile_length, int num_of_letters, double ***ret_letter_probs, double **ret_background_probs);
 extern int  letter_probs_count(int profile_length, int seq_length, ESL_DSQ *dsq, float wt, ESL_ALPHABET *abc, double **letter_probs, double *background_probs, int *matassign);
 extern int  letter_probs_normalize(int profile_length, int num_of_letters, double **letter_probs, double *background_probs);
