@@ -227,7 +227,7 @@ letter_probs_destroy(int profile_length, double **letter_probs, double *backgrou
 int
 letter_probs_normalize(int profile_length, int num_of_letters, double **letter_probs, double *background_probs)
 {
-  for (int i = 0; i < profile_length; i++) {
+  for (int i = 1; i <= profile_length; i++) {
     double row_sum = 0.0;
     for (int k = 0; k < num_of_letters; k++) row_sum += letter_probs[i][k];
     if (row_sum > 0.0) {
