@@ -165,7 +165,7 @@ f4_hmmfile_WriteASCII(FILE *fp, int format, F4_HMM *hmm)
     }
   }
 
-  if (fprintf(fp, "HMM     ")                                         < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
+  if (fprintf(fp, "DMM     ")                                         < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
   for (x = 0; x < hmm->abc->K; x++) 
     { if (fprintf(fp, "     %c   ", hmm->abc->sym[x])                 < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed"); }
   if (fputc('\n', fp)                                                 < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
