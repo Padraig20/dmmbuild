@@ -1,6 +1,7 @@
 /* F4_FWDBCK, estimating parameter counts via Baum-Welch Expectation Maximization.
  *
  * Contents:
+ *   0. Helper Functions.
  *   1. The Baum-Welch structure.
  *   2. Letter probabilities and background probabilities.
  *   3. Forward and backward procedures.
@@ -11,10 +12,115 @@
 #include "dummer.h"
 
 /*****************************************************************
+ * 0. Helper Functions.
+ *****************************************************************/
+
+/* Function: is_gap_or_missing()
+ * 
+ * Purpose:  Check if a letter is a gap or missing data in the alphabet.
+ * 
+ * Args:     letter - the letter to check
+ *           abc - pointer to the alphabet structure
+ * 
+ * Returns:  1 (true) if the letter is a gap or missing data, 0 otherwise.
+ * 
+ * Notes:    We assume that the alphabet of the MSA is correct. If not,
+ *           that's on the user :( Sorry about the memory leaks, but fix
+ *           the MSA!
+ */
+int
+is_gap_or_missing(ESL_DSQ letter, ESL_ALPHABET *abc) {
+  if (letter >= abc->K && letter < abc->Kp) {
+    return 1; // gap or missing data
+  } else if (letter < 0 || letter >= abc->Kp) {
+    fprintf(stderr, "Whoa. That does not look good. This letter should not even be in the alphabet: %d\n", letter);
+    fprintf(stderr, "The alphabet size is %d, and the total size of the alphabet (including gaps, missing data, ...) is %d.\n", abc->K, abc->Kp);
+    fprintf(stderr, "Hell breaks loose. This script will abort now. Sorry about that. Fix your MSA and come back!\n");
+    abort(); // this is a serious error, we can not continue
+  }
+  return 0; // valid symbol
+}
+
+/* Function: get_sequence_without_gaps()
+ * 
+ * Purpose:  Extract the sequence from the MSA without gaps or missing data.
+ * 
+ * Args:     msa - pointer to the MSA structure
+ *           ret_dsq - return pointer to the array of sequences
+ *                     without gaps [0..nseq-1][1..length]
+ *           ret_length - return pointer to the array of lengths of the
+ *                        sequences without gaps [0..nseq-1]
+ * 
+ * Returns:  <eslOK> on success.
+ *           <eslEMEM> on memory allocation failure.
+ * 
+ * Notes:    Both arrays will be allocated and must be freed by the *caller*.
+ */
+int
+get_sequence_without_gaps(ESL_MSA *msa, ESL_DSQ ***ret_dsq, int **ret_length) {
+  int i, j, k;
+  int length;
+  ESL_DSQ *dsq;
+
+  *ret_dsq    = malloc(msa->nseq * sizeof(ESL_DSQ*));
+  *ret_length = calloc(msa->nseq, sizeof(int));
+
+  for (i = 0; i < msa->nseq; i++) {
+    length = 0;
+
+    for (j = 1; j <= msa->alen; j++)
+      if (!is_gap_or_missing(msa->ax[i][j], msa->abc))
+        length++;
+    
+    (*ret_length)[i] = length;
+  }
+
+  for (i = 0; i < msa->nseq; i++) {
+    k = 0;
+    dsq = malloc(sizeof(ESL_DSQ) * ((*ret_length)[i] + 1)); // +1 for null terminator
+    if (dsq == NULL) goto ERROR;
+
+    for (j = 1; j <= msa->alen; j++)
+      if (!is_gap_or_missing(msa->ax[i][j], msa->abc))
+        dsq[k++] = msa->ax[i][j];
+
+    dsq[k] = eslDSQ_SENTINEL; // null terminator
+    (*ret_dsq)[i] = dsq;
+  }
+  
+  return eslOK;
+
+ ERROR:
+  if (dsq != NULL) free(dsq);
+  return eslEMEM;   
+}
+
+/* Function: free_sequence_without_gaps()
+ *
+ * Purpose:  Free the memory allocated for the sequences without gaps
+ *           as well as the lengths.
+ * 
+ * Args:     dsq - pointer to the array of sequences without gaps
+ *           length - pointer to the array of lengths of the sequences
+ *           nseq - number of sequences
+ * 
+ * Returns:  (void)
+ */
+void
+free_sequence_without_gaps(ESL_DSQ **dsq, int *length, int nseq) {
+  int i;
+  for (i = 0; i < nseq; i++) {
+    if (dsq[i] != NULL) free(dsq[i]);
+  }
+  free(dsq);
+  free(length);
+}
+
+/*****************************************************************
  * 1. The Baum-Welch structure.
  *****************************************************************/
 
- /* Function:  bw_build()
+ /* Function: bw_build()
   * 
   * Purpose:  Allocate and initialize the data structures needed for
   *           the Baum-Welch algorithm.
@@ -270,11 +376,8 @@ letter_probs_count(int profile_length, int seq_length, ESL_DSQ *dsq, float wt, E
       continue; // skip positions not assigned to the profile
     }
 
-    if (dsq[i] >= abc->K && dsq[i] < abc->Kp) {
+    if (is_gap_or_missing(dsq[i], abc)) {
       continue; // this is just a gap or missing symbol, skip it
-    } else if (dsq[i] < 0 || dsq[i] >= abc->Kp) {
-      fprintf(stderr, "Error: Invalid symbol %d at position %d in the sequence.\n", dsq[i], i);
-      return eslFAIL;
     }
 
     letter_probs[idx][dsq[i]]  += wt;
@@ -328,22 +431,13 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
   double alpha_prob, beta_prob, delta_prob, epsilon_prob, epsilon_prob1; // counts to probabilities
   double w;
   int letter;
-  int pos;
 
   for (int i = 1; i <= M+1; i++) {
-    pos = 1;
-    for (int j = 1; j <= N+1; j++) {
+    for (int j = 1; j <= N; j++) {
 
       letter = dsq[j];
 
-      if (letter >= abc->K && letter < abc->Kp) {
-        continue;
-      } else if ((dsq[j] < 0 || dsq[j] >= abc->Kp) && j != N+1) {
-        fprintf(stderr, "Error f4_fwd(): Invalid symbol %d at position %d in the sequence.\n", dsq[j-1], j);
-        return eslFAIL;
-      }
-
-      if (j == N+1) letter = 0; // can use arbitrary values for theta_n
+      if (j == N) letter = 0; // can use arbitrary values for theta_n
 
       alpha_prob   = hmm->tp[i-1][f4H_ALPHA]   / (hmm->tp[i-1][f4H_ALPHA]   + hmm->tp[i-1][f4H_DELTA] + hmm->tp[i-1][f4H_GAMMA]);
       beta_prob    = hmm->tp[i-1][f4H_BETA]    / (hmm->tp[i-1][f4H_BETA]    + hmm->tp[i-1][f4H_BETAP]);
@@ -373,14 +467,12 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
         if (isnan(e_prime)) e_prime = 0.0; // Avoid NaN issues
       }
 
-      w = X[i-1][pos-1] + Y[i-1][pos] + Z[i][pos-1] + wt; // weight is the score
+      w = X[i-1][j-1] + Y[i-1][j] + Z[i][j-1] + wt; // weight is the score
       *w_sum += w;
       
-      X[i][pos] = S * w;
-      Y[i][pos] = d_prime * w + e_prime * Y[i-1][pos];
-      Z[i][pos] = a_prime * w + b_prime * Z[i][pos-1];
-
-      pos++; // increment if not a gap or missing symbol
+      X[i][j] = S * w;
+      Y[i][j] = d_prime * w + e_prime * Y[i-1][j];
+      Z[i][j] = a_prime * w + b_prime * Z[i][j-1];
     }
   }
 
@@ -421,20 +513,11 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
   double alpha_prob, beta_prob, delta_prob, epsilon_prob, epsilon_prob1; // counts to probabilities
   double x;
   int letter;
-  int pos;
 
   for (int i = M; i >= 0; i--) {
-    pos = N;
-    for (int j = N; j >= 0; j--) {
+    for (int j = N-1; j >= 0; j--) {
 
       letter = dsq[j];
-
-      if (letter >= abc->K && letter < abc->Kp) {
-        continue;
-      } else if ((letter < 0 || letter >= abc->Kp) && j != 0) {
-        fprintf(stderr, "Error f4_bwd(): Invalid symbol %d at position %d in the sequence.\n", letter, j);
-        return eslFAIL;
-      }
 
       if (j == 0) letter = 0; // can use arbitrary values for theta_-1
 
@@ -467,13 +550,11 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
         if (isnan(e_prime)) e_prime = 0.0; // avoid NaN issues
       }
 
-      x = S * W_bar[i+1][pos+1];
+      x = S * W_bar[i+1][j+1];
       
-      W_bar[i][pos] = x + d_prime * Y_bar[i+1][pos] + a_prime * Z_bar[i][pos+1] + wt; // weight is the score
-      Y_bar[i][pos] = W_bar[i][pos] + e_prime * Y_bar[i+1][pos];
-      Z_bar[i][pos] = W_bar[i][pos] + b_prime * Z_bar[i][pos+1];
-
-      pos--; // increment if not a gap or missing symbol
+      W_bar[i][j] = x + d_prime * Y_bar[i+1][j] + a_prime * Z_bar[i][j+1] + wt; // weight is the score
+      Y_bar[i][j] = W_bar[i][j] + e_prime * Y_bar[i+1][j];
+      Z_bar[i][j] = W_bar[i][j] + b_prime * Z_bar[i][j+1];
     }
   }
 
@@ -668,26 +749,36 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, double **letter_prob
   float wt;           // weight for the sequences
   int idx;            // index for sequences in the MSA
 
-  double **W_bar, **Y_bar, **Z_bar; // backward
-  double **X, **Y, **Z;             // forward
-  F4_HMM *param_counts;             // parameter counts for the HMM
-  double v;                         // variable to accumulate the sum of weights
+  double **W_bar = NULL, **Y_bar = NULL, **Z_bar = NULL; // backward
+  double **X = NULL, **Y = NULL, **Z = NULL;             // forward
+  F4_HMM *param_counts = NULL;                           // parameter counts for the HMM
+  double v;                                              // variable to accumulate the sum of weights
 
-  if(bw_build(M, N, &W_bar, &Y_bar, &Z_bar, &X, &Y, &Z) != eslOK) {
-    return eslEMEM; // memory allocation failure
-  }
+  ESL_DSQ *dsq;     // sequence without gaps
+  ESL_DSQ **dsqs;   // array of sequences without gaps
+  int seq_length;   // length of sequence without gaps
+  int *seq_lengths; // lengths of sequences without gaps
+
+  int status = eslEINVAL; // status code for error handling
+
+  if ((status = get_sequence_without_gaps(msa, &dsqs, &seq_lengths)) != eslOK)
+    goto ERROR;
+
+  if ((status = bw_build(M, N, &W_bar, &Y_bar, &Z_bar, &X, &Y, &Z)) != eslOK)
+    goto ERROR;
+
   if ((param_counts = f4_hmm_Create(M, msa->abc)) == NULL) {
-    bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-    return eslEMEM; // memory allocation failure
+    status = eslEMEM;
+    goto ERROR;
   }
 
   /* Needed to determine termination. */
   int termination_condition;
-  int num_iterations        = 0;
+  int num_iterations = 0;
 
   do {
 
-    /* We aggregate the counts over all sequences. */
+    /* We aggregate the expected counts over all sequences. */
     f4_hmm_Zero(param_counts);
 
     for (idx = 0; idx < msa->nseq; idx++) {
@@ -696,30 +787,21 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, double **letter_prob
 
       wt = msa->wgt[idx];
 
+      dsq = dsqs[idx]; // get the sequence without gaps
+      seq_length = seq_lengths[idx];
+
       /* Forward pass, calculate X, Y, Z and the aggregated v (i.e. sum of w-values) */
       v = 0.0;
-      if (f4_fwd(hmm, msa->ax[idx], wt, tr[idx], msa->abc, X, Y, Z, M, N, letter_probs, background_probs, &v) != eslOK) {
-        bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-        f4_hmm_Destroy(param_counts);
-        return eslEINVAL;
-      }
-
+      if ((status = f4_fwd(hmm, dsq, wt, tr[idx], msa->abc, X, Y, Z, M, seq_length, letter_probs, background_probs, &v)) != eslOK)
+        goto ERROR;
+      
       /* Backward pass, calculate W_bar, Y_bar, Z_bar */
-      if (f4_bwd(hmm, msa->ax[idx], wt, tr[idx], msa->abc, W_bar, Y_bar, Z_bar, M, N, letter_probs, background_probs) != eslOK) {
-        bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-        f4_hmm_Destroy(param_counts);
-        return eslEINVAL;
-      }
+      if ((status = f4_bwd(hmm, dsq, wt, tr[idx], msa->abc, W_bar, Y_bar, Z_bar, M, seq_length, letter_probs, background_probs)) != eslOK)
+        goto ERROR;
 
       /* Calculate and update parameters in hmm */
-      if (f4_calculate_parameters(hmm, N,
-                                  W_bar, Y_bar, Z_bar,
-                                  X, Y, Z,
-                                  v, letter_probs, param_counts) != eslOK) {
-        bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-        f4_hmm_Destroy(param_counts);
-        return eslEINVAL;
-      }
+      if ((status = f4_calculate_parameters(hmm, N, W_bar, Y_bar, Z_bar, X, Y, Z, v, letter_probs, param_counts)) != eslOK)
+        goto ERROR;
     }
 
     /* Determine termination condition. Then save the aggregated parameter counts to the HMM. */
@@ -731,6 +813,19 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, double **letter_prob
 
   bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
   f4_hmm_Destroy(param_counts);
+  free_sequence_without_gaps(dsqs, seq_lengths, msa->nseq);
   
   return eslOK;
+
+  ERROR:
+  if (W_bar || Y_bar || Z_bar || X || Y || Z)
+    bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
+
+  if (param_counts)
+    f4_hmm_Destroy(param_counts);
+
+  if (dsqs || seq_lengths)
+    free_sequence_without_gaps(dsqs, seq_lengths, msa->nseq);
+
+  return status;
 }
