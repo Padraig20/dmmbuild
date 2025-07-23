@@ -14,7 +14,7 @@ def parse_profile_negln(path):
     meta = {}
     hmm_start = None
     for i, line in enumerate(lines):
-        if line.startswith("HMM "):
+        if line.startswith("HMM ") or line.startswith("DMM "):
             hmm_start = i
             break
         m = re.match(r"^(\S+)\s+(.*)$", line.rstrip())
@@ -71,9 +71,9 @@ def compare(dummer_file, hmmer_file, verbose=False):
     
     if verbose:
         print("DUMMER transition probabilities:")
-        print(df_dummer)
+        print(df_dummer.round(6))
         print("\nHMMER transition probabilities:")
-        print(df_hmmer)
+        print(df_hmmer.round(6))
     
     cols = [c for c in df_hmmer.columns if c in df_dummer.columns]
 
