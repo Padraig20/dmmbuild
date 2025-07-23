@@ -35,7 +35,7 @@
 #define DUMMER_VERSION "0.1"
 #define  DUMMER_DATE "Jul 2025"
 #define  DUMMER_COPYRIGHT "Copyright (C) 2025 The University of Tokyo."
-#define  DUMMER_LICENSE "Freely distributed under the MIT open source license."
+#define  DUMMER_LICENSE "Freely distributed under the BSD open source license."
 #define  DUMMER_URL "https://gitlab.com/mcfrith/seq-position-probs"
 
 /* Relative entropy target defaults:
