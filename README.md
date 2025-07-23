@@ -1,5 +1,5 @@
 # dmmbuild
-![](https://img.shields.io/badge/license-MIT-brightgreen.svg)
+![](https://img.shields.io/badge/license-BSD-brightgreen.svg)
 
 ## What is DUMMER?
 
