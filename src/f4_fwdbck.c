@@ -356,8 +356,8 @@ letter_probs_normalize(int profile_length, int num_of_letters, double **letter_p
  * Args:     profile_length - length of the profile (number of states in the HMM)
  *           dsq - sequence to count letters from
  *           wt - weight for the counts
- *           letter_probs - holds counts of letters at each position in the profile
- *           background_probs - holds counts of letters of all positions in the profile
+ *           letter_probs - holds counts of letters at each position in the profile [1..profile_length][0..K-1]
+ *           background_probs - holds counts of letters of all positions in the profile [0..K-1]
  * 
  * Returns:  <eslOK> on success.
  *           <eslFAIL> on invalid symbol in the sequence OR profile has not been extracted successfully.
@@ -381,7 +381,7 @@ letter_probs_count(int profile_length, int seq_length, ESL_DSQ *dsq, float wt, E
     }
 
     letter_probs[idx][dsq[i]]  += wt;
-    background_probs[dsq[i]] += wt;
+    background_probs[dsq[i]]   += wt;
   }
 
   if (idx != profile_length) {
@@ -432,11 +432,11 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
   int letter;
 
   for (int i = 1; i <= M+1; i++) {
-    for (int j = 1; j <= N; j++) {
+    for (int j = 1; j <= N+1; j++) {
 
       letter = dsq[j];
 
-      if (j == N) letter = 0; // can use arbitrary values for theta_n
+      if (j == N+1) letter = 0; // can use arbitrary values for theta_n
 
       alpha_prob   = hmm->tp[i-1][f4H_ALPHA]   / (hmm->tp[i-1][f4H_ALPHA]   + hmm->tp[i-1][f4H_DELTA] + hmm->tp[i-1][f4H_GAMMA]);
       beta_prob    = hmm->tp[i-1][f4H_BETA]    / (hmm->tp[i-1][f4H_BETA]    + hmm->tp[i-1][f4H_BETAP]);
@@ -459,7 +459,7 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
         epsilon_prob1 = hmm->tp[i][f4H_EPSILON] / (hmm->tp[i][f4H_EPSILON] + hmm->tp[i][f4H_EPSILONP]);
         if (isnan(epsilon_prob1)) epsilon_prob1 = 0.0;
 
-        S = (1 - alpha_prob - delta_prob) * letter_probs[i-1][letter] / background_probs[letter];
+        S = (1 - alpha_prob - delta_prob) * letter_probs[i][letter] / background_probs[letter];
 
         d_prime = delta_prob   * (1 - epsilon_prob1);
         e_prime = epsilon_prob * (1 - epsilon_prob1) / (1 - epsilon_prob);
@@ -513,7 +513,7 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
   int letter;
 
   for (int i = M; i >= 0; i--) {
-    for (int j = N-1; j >= 0; j--) {
+    for (int j = N; j >= 0; j--) {
 
       letter = dsq[j];
 
@@ -541,7 +541,7 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
         epsilon_prob1 = hmm->tp[i+1][f4H_EPSILON] / (hmm->tp[i+1][f4H_EPSILON] + hmm->tp[i+1][f4H_EPSILONP]);
         if (isnan(epsilon_prob1)) epsilon_prob1 = 0.0;
 
-        S = (1 - alpha_prob - delta_prob) * letter_probs[i][letter] / background_probs[letter];
+        S = (1 - alpha_prob - delta_prob) * letter_probs[i+1][letter] / background_probs[letter];
 
         d_prime = delta_prob   * (1 - epsilon_prob1);
         e_prime = epsilon_prob * (1 - epsilon_prob1) / (1 - epsilon_prob);
