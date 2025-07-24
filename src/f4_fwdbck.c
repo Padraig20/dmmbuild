@@ -809,7 +809,12 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
     param_counts_save_to_hmm(hmm, param_counts);
     num_iterations++;
 
+    printf("\rIteration %d / %d: %s", num_iterations, f4_BW_MAXITER, termination_condition ? "    converged" : "not converged");
+    fflush(stdout);
+
   } while (!termination_condition && num_iterations < f4_BW_MAXITER);
+
+  printf("\nError tolerance: %g, iterations: %d, %s\n", f4_BW_CONVERGE, num_iterations, termination_condition ? "Baum-Welch converged" : "Baum-Welch did not converge");
 
   bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
   f4_hmm_Destroy(param_counts);
