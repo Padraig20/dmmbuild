@@ -438,15 +438,10 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
       if (j == N+1) letter = 0; // can use arbitrary values for theta_n
       else letter = dsq[j-1];
 
-      alpha_prob   = hmm->tp[i-1][f4H_ALPHA]   / (hmm->tp[i-1][f4H_ALPHA]   + hmm->tp[i-1][f4H_DELTA] + hmm->tp[i-1][f4H_GAMMA]);
-      beta_prob    = hmm->tp[i-1][f4H_BETA]    / (hmm->tp[i-1][f4H_BETA]    + hmm->tp[i-1][f4H_BETAP]);
-      delta_prob   = hmm->tp[i-1][f4H_DELTA]   / (hmm->tp[i-1][f4H_ALPHA]   + hmm->tp[i-1][f4H_DELTA] + hmm->tp[i-1][f4H_GAMMA]);
-      epsilon_prob = hmm->tp[i-1][f4H_EPSILON] / (hmm->tp[i-1][f4H_EPSILON] + hmm->tp[i-1][f4H_EPSILONP]);
-
-      if (isnan(alpha_prob))   alpha_prob   = 0.0;
-      if (isnan(beta_prob))    beta_prob    = 0.0;
-      if (isnan(delta_prob))   delta_prob   = 0.0;
-      if (isnan(epsilon_prob)) epsilon_prob = 0.0;
+      alpha_prob   = hmm->tp[i-1][f4H_ALPHA];
+      beta_prob    = hmm->tp[i-1][f4H_BETA];
+      delta_prob   = hmm->tp[i-1][f4H_DELTA];
+      epsilon_prob = hmm->tp[i-1][f4H_EPSILON];
 
       a_prime = alpha_prob * (1.0 - beta_prob);
       b_prime = beta_prob;
@@ -456,8 +451,7 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
         d_prime = 0.0;
         e_prime = 0.0;
       } else {
-        epsilon_prob1 = hmm->tp[i][f4H_EPSILON] / (hmm->tp[i][f4H_EPSILON] + hmm->tp[i][f4H_EPSILONP]);
-        if (isnan(epsilon_prob1)) epsilon_prob1 = 0.0;
+        epsilon_prob1 = hmm->tp[i][f4H_EPSILON];
 
         S = (1 - alpha_prob - delta_prob) * letter_probs[i][letter] / background_probs[letter];
 
@@ -519,15 +513,10 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
       else letter = dsq[j];
 
       // calculate probabilities based on transition counts
-      alpha_prob   = hmm->tp[i][f4H_ALPHA]   / (hmm->tp[i][f4H_ALPHA]   + hmm->tp[i][f4H_DELTA] + hmm->tp[i][f4H_GAMMA]);
-      beta_prob    = hmm->tp[i][f4H_BETA]    / (hmm->tp[i][f4H_BETA]    + hmm->tp[i][f4H_BETAP]);
-      delta_prob   = hmm->tp[i][f4H_DELTA]   / (hmm->tp[i][f4H_ALPHA]   + hmm->tp[i][f4H_DELTA] + hmm->tp[i][f4H_GAMMA]);
-      epsilon_prob = hmm->tp[i][f4H_EPSILON] / (hmm->tp[i][f4H_EPSILON] + hmm->tp[i][f4H_EPSILONP]);
-
-      if (isnan(alpha_prob))   alpha_prob   = 0.0;
-      if (isnan(beta_prob))    beta_prob    = 0.0;
-      if (isnan(delta_prob))   delta_prob   = 0.0;
-      if (isnan(epsilon_prob)) epsilon_prob = 0.0;
+      alpha_prob   = hmm->tp[i][f4H_ALPHA];
+      beta_prob    = hmm->tp[i][f4H_BETA];
+      delta_prob   = hmm->tp[i][f4H_DELTA];
+      epsilon_prob = hmm->tp[i][f4H_EPSILON];
 
       a_prime = alpha_prob * (1.0 - beta_prob);
       b_prime = beta_prob;
@@ -537,8 +526,7 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
         d_prime = 0.0;
         e_prime = 0.0;
       } else {
-        epsilon_prob1 = hmm->tp[i+1][f4H_EPSILON] / (hmm->tp[i+1][f4H_EPSILON] + hmm->tp[i+1][f4H_EPSILONP]);
-        if (isnan(epsilon_prob1)) epsilon_prob1 = 0.0;
+        epsilon_prob1 = hmm->tp[i+1][f4H_EPSILON];
 
         S = (1 - alpha_prob - delta_prob) * letter_probs[i+1][letter] / background_probs[letter];
 
@@ -616,34 +604,34 @@ f4_calculate_parameters(F4_HMM *hmm, int N, float wt,
     // expected count of (1 - beta)
     betap = 0.0;
     for (int j = 1; j <= N+1; j++) {
-      betap += Z[i][j-1] * W_bar[i][j];
+      betap += Z[i][j-1] * W_bar[i-1][j-1];
     }
     betap /= v;
 
     // expected count of beta
     beta = 0.0;
     for (int j = 1; j <= N+1; j++) {
-      beta += Z[i][j-1] * Z_bar[i][j];
+      beta += Z[i][j-1] * Z_bar[i-1][j-1];
     }
     beta /= v;
     beta -= betap;
-    if (beta < 0.0) printf("Warning: Negative beta count at position %d.\n", i);
+    if (beta < -DBL_EPSILON) printf("Warning: Negative beta count at position %d.\n", i);
 
     // expected count of (1 - epsilon)
     epsilonp = 0.0;
     for (int j = 1; j <= N+1; j++) {
-      epsilonp += Y[i-1][j] * W_bar[i][j];
+      epsilonp += Y[i-1][j] * W_bar[i-1][j-1];
     }
     epsilonp /= v;
 
     // expected count of epsilon
     epsilon = 0.0;
     for (int j = 1; j <= N+1; j++) {
-      epsilon += Y[i-1][j] * Y_bar[i][j];
+      epsilon += Y[i-1][j] * Y_bar[i-1][j-1];
     }
     epsilon /= v;
     epsilon -= epsilonp;
-    if (epsilon < 0.0) printf("Warning: Negative epsilon count at position %d.\n", i);
+    if (epsilon < -DBL_EPSILON) printf("Warning: Negative epsilon count at position %d.\n", i);
 
     // expected count of alpha
     alpha = betap;
@@ -656,26 +644,27 @@ f4_calculate_parameters(F4_HMM *hmm, int N, float wt,
     if (i < M+1) { // epsilon_m may be arbitrary, therefore 0 is fine
       // expected count of epsilonp_i+1
       for (int j = 1; j <= N+1; j++) {
-        epsilonp_i1 += Y[i][j] * W_bar[i+1][j]; // i++
+        epsilonp_i1 += Y[i][j] * W_bar[i][j-1]; // i++
       }
       epsilonp_i1 /= v;
       // expected count of epsilon_i+1
       for (int j = 1; j <= N+1; j++) {
-        epsilon_i1 += Y[i][j] * Y_bar[i+1][j]; // i++
+        epsilon_i1 += Y[i][j] * Y_bar[i][j-1]; // i++
       }
       epsilon_i1 /= v;
       epsilon_i1 -= epsilonp_i1;
     }
     // now we can calculate delta
     delta = (i < M+1) ? epsilonp_i1 + epsilon_i1 - epsilon : 0.0; // delta_m is arbitrary
-    if (delta < 0.0) printf("Warning: Negative delta count at position %d.\n", i);
+    if (delta < -DBL_EPSILON) printf("Warning: Negative delta count at position %d. %g + %g - %g = %g\n", i, 
+      epsilonp_i1, epsilon_i1, epsilon, delta);
 
     // expected count of gamma
     // gamma_m is arbitrary
     gamma = 0.0;
     if (i < M+1) {
       for (int j = 1; j <= N; j++) {
-        gamma += X[i][j] * W_bar[i+1][j+1];
+        gamma += X[i][j] * W_bar[i][j];
       }
       gamma /= v;
     }
@@ -777,6 +766,9 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
     goto ERROR;
   }
 
+  if ((status = estimate_parameters(hmm, pri)) != eslOK) 
+    goto ERROR;
+
   /* Needed to determine termination. */
   int termination_condition;
   int num_iterations = 0;
@@ -808,6 +800,9 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
       if ((status = f4_calculate_parameters(hmm, seq_length, wt, W_bar, Y_bar, Z_bar, X, Y, Z, v, letter_probs, param_counts)) != eslOK)
         goto ERROR;
     }
+
+    if ((status = estimate_parameters(param_counts, pri)) != eslOK) 
+      goto ERROR;
 
     /* Determine termination condition. Then save the aggregated parameter counts to the HMM. */
     termination_condition = determine_termination_condition(hmm, param_counts);
