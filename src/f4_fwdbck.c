@@ -803,7 +803,7 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
         goto ERROR;
 
       /* Calculate and update parameters in hmm */
-      if ((status = f4_calculate_parameters(hmm, N, wt, W_bar, Y_bar, Z_bar, X, Y, Z, v, letter_probs, param_counts)) != eslOK)
+      if ((status = f4_calculate_parameters(hmm, seq_length, wt, W_bar, Y_bar, Z_bar, X, Y, Z, v, letter_probs, param_counts)) != eslOK)
         goto ERROR;
     }
 
