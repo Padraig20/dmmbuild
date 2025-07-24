@@ -177,11 +177,6 @@ static int    annotate             (F4_BUILDER *bld, const ESL_MSA *msa, F4_HMM 
  *
  * Throws:    <eslEMEM> on allocation error.
  *            <eslEINVAL> if relative weights couldn't be calculated from <msa>.
- * 
- * TODO:      We need better DI and ID transition priors. Furthermore, we need
- *            a way to estimate the priors for the four parameters.
- *
- * Xref:      J4/30.
  */
 int
 f4_Builder(F4_BUILDER *bld, ESL_MSA *msa, F4_BG *bg, F4_HMM **opt_hmm, F4_TRACE ***opt_trarr)
@@ -195,33 +190,12 @@ f4_Builder(F4_BUILDER *bld, ESL_MSA *msa, F4_BG *bg, F4_HMM **opt_hmm, F4_TRACE 
   if ((status =  validate_msa         (bld, msa))                       != eslOK) goto ERROR;
   if ((status =  esl_msa_Checksum     (msa, &checksum))                 != eslOK) ESL_XFAIL(status, bld->errbuf, "Failed to calculate checksum"); 
   if ((status =  relative_weights     (bld, msa))                       != eslOK) goto ERROR;
-  if ((status =  esl_msa_MarkFragments_old(msa, bld->fragthresh))           != eslOK) goto ERROR;
+  if ((status =  esl_msa_MarkFragments_old(msa, bld->fragthresh))       != eslOK) goto ERROR;
   if ((status =  build_model          (bld, msa, &hmm, tr_ptr))         != eslOK) goto ERROR;
-
-  //Ensures that the weighted-average I->I count <=  bld->max_insert_len
-  //(beta currently contains the number of observed insert-starts)
-  if (bld->max_insert_len>0) {
-    for (i=1; i<hmm->M; i++ ) {
-      hmm->tp[i][f4H_BETA]  = ESL_MIN(hmm->tp[i][f4H_BETA], bld->max_insert_len*(hmm->tp[i][f4H_ALPHA] * 2));
-    }
-  }
 
   if ((status =  effective_seqnumber  (bld, msa, hmm, bg))              != eslOK) goto ERROR;
   if ((status =  parameterize         (bld, hmm))                       != eslOK) goto ERROR;
   if ((status =  annotate             (bld, msa, hmm))                  != eslOK) goto ERROR;
-  //if ((status =  calibrate            (bld, hmm, bg, opt_gm, opt_om))   != eslOK) goto ERROR;
-
-  /* sanity check: printing resulting probabilities.*/
-  /*
-  printf("hmm->tp matrix:\n");
-  for (i = 1; i < hmm->M; i++) {
-    printf("tp[%d]:", i);
-    for (j = 0; j < f4H_NPARAMS; j++) {
-      printf(" %g", hmm->tp[i][j]);
-    }
-    printf("\n");
-  }
-  */
 
   //force masked positions to background  (it'll be close already, so no relevant impact on weighting)
   if (hmm->mm != NULL)
@@ -505,6 +479,8 @@ validate_msa(F4_BUILDER *bld, ESL_MSA *msa)
 
 /* set_relative_weights():
  * Set msa->wgt vector, using user's choice of relative weighting algorithm.
+ * 
+ * For DUMMER, we make sure that the weights are relative, i.e., they sum to 1.
  */
 static int
 relative_weights(F4_BUILDER *bld, ESL_MSA *msa)
@@ -520,6 +496,21 @@ relative_weights(F4_BUILDER *bld, ESL_MSA *msa)
   else if (bld->wgt_strategy == f4_WGT_GSC)                     status = esl_msaweight_GSC(msa); 
   else if (bld->wgt_strategy == f4_WGT_BLOSUM)                  status = esl_msaweight_BLOSUM(msa, bld->wid); 
   else ESL_EXCEPTION(eslEINCONCEIVABLE, "no such weighting strategy");
+
+  /* In DUMMER, we want to make sure that weights do not exceed 1. */
+  /* Therefore, we divide each weight by the maximum weight.       */
+  double max_wgt = msa->wgt[0];
+  for (int i = 1; i < msa->nseq; i++) {
+    if (msa->wgt[i] > max_wgt) max_wgt = msa->wgt[i];
+  }
+  if (max_wgt > 0.0) {
+    for (int i = 0; i < msa->nseq; i++) {
+      msa->wgt[i] /= max_wgt;
+    }
+  } else {
+    fprintf(stderr, "Warning: All weights are zero. This may indicate an issue with the alignment or weighting strategy.\n");
+    return eslEINVAL;
+  }
 
   if (status != eslOK) ESL_FAIL(status, bld->errbuf, "failed to set relative weights in alignment");
   esl_msaweight_cfg_Destroy(cfg);
