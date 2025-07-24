@@ -206,19 +206,19 @@ bw_destroy(int M,
  * Purpose:  Initialize the W_bar, Y_bar, Z_bar, X, Y, Z matrices to zero.
  * 
  * Args:     M - length of the profile (number of states in the HMM)
- *           L - length of the sequence
+ *           N - length of the sequence
  *           W_bar, Y_bar, Z_bar - matrices to zero
  *           X, Y, Z - matrices to zero
  * 
  * Returns:  (void)
  */
 void
-bw_zero(int M, int L, 
+bw_zero(int M, int N, 
         double **W_bar, double **Y_bar, double **Z_bar, 
         double **X, double **Y, double **Z)
 {
   for (int k = 0; k <= M+1; k++) {
-    for (int l = 0; l <= L+1; l++) {
+    for (int l = 0; l <= N+1; l++) {
       W_bar[k][l] = 0.0;
       Y_bar[k][l] = 0.0;
       Z_bar[k][l] = 0.0;
@@ -267,8 +267,8 @@ param_counts_save_to_hmm(F4_HMM *hmm, F4_HMM *param_counts)
  * 
  * Args:     profile_length - length of the profile (number of states in the HMM)
  *           num_of_letters - number of letters in the alphabet
- *           ret_letter_probs - RETURN: pointer to the letter probabilities array
- *           ret_background_probs - RETURN: pointer to the background probabilities array
+ *           ret_letter_probs - RETURN: pointer to the letter probabilities array [1..profile_length][0..K-1]
+ *           ret_background_probs - RETURN: pointer to the background probabilities array [0..K-1]
  * 
  * Returns:  <eslOK> on success.
  *           <eslEMEM> on memory allocation failure.
@@ -279,13 +279,12 @@ letter_probs_build(int profile_length, int num_of_letters, double ***ret_letter_
   double **letter_probs    = malloc((profile_length+1) * sizeof(double*));
   double *background_probs = calloc(num_of_letters, sizeof(double));
 
-
   if (!letter_probs || !background_probs) {
     free(letter_probs); free(background_probs);
     return eslEMEM;
   }
 
-  for (int i = 0; i < profile_length+1; i++) {
+  for (int i = 1; i <= profile_length; i++) {
     letter_probs[i] = calloc(num_of_letters, sizeof(double));
     if (!letter_probs[i]) {
       for (int j = 0; j < i; j++) free(letter_probs[j]);
@@ -313,7 +312,7 @@ letter_probs_build(int profile_length, int num_of_letters, double ***ret_letter_
 void
 letter_probs_destroy(int profile_length, double **letter_probs, double *background_probs)
 {
-  if (letter_probs) { for (int i = 0; i < profile_length+1; i++) free(letter_probs[i]); free(letter_probs); }
+  if (letter_probs) { for (int i = 1; i <= profile_length; i++) free(letter_probs[i]); free(letter_probs); }
   if (background_probs) free(background_probs);
 }
 
@@ -344,6 +343,8 @@ letter_probs_normalize(int profile_length, int num_of_letters, double **letter_p
   for (int k = 0; k < num_of_letters; k++) bg_sum += background_probs[k];
   if (bg_sum > 0.0) {
     for (int k = 0; k < num_of_letters; k++) background_probs[k] /= bg_sum;
+  } else {
+    fprintf(stderr, "Warning: Background probabilities sum to zero. This may indicate an issue with the input data.\n");
   }
   return eslOK;
 }
@@ -434,9 +435,8 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
   for (int i = 1; i <= M+1; i++) {
     for (int j = 1; j <= N+1; j++) {
 
-      letter = dsq[j];
-
       if (j == N+1) letter = 0; // can use arbitrary values for theta_n
+      else letter = dsq[j-1];
 
       alpha_prob   = hmm->tp[i-1][f4H_ALPHA]   / (hmm->tp[i-1][f4H_ALPHA]   + hmm->tp[i-1][f4H_DELTA] + hmm->tp[i-1][f4H_GAMMA]);
       beta_prob    = hmm->tp[i-1][f4H_BETA]    / (hmm->tp[i-1][f4H_BETA]    + hmm->tp[i-1][f4H_BETAP]);
@@ -515,9 +515,8 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
   for (int i = M; i >= 0; i--) {
     for (int j = N; j >= 0; j--) {
 
-      letter = dsq[j];
-
-      if (j == 0) letter = 0; // can use arbitrary values for theta_-1
+      if (j == N) letter = 0; // can use arbitrary values for theta_n
+      else letter = dsq[j];
 
       // calculate probabilities based on transition counts
       alpha_prob   = hmm->tp[i][f4H_ALPHA]   / (hmm->tp[i][f4H_ALPHA]   + hmm->tp[i][f4H_DELTA] + hmm->tp[i][f4H_GAMMA]);
