@@ -229,28 +229,28 @@ bw_zero(int M, int N,
   }
 }
 
-/* Function: param_counts_save_to_hmm()
+/* Function: param_counts_save_from_to()
  *
  * Purpose:  Save the parameter counts into another HMM structure.
  * 
- * Args:     hmm - the HMM structure to save the counts into
- *           param_counts - the HMM structure whose parameter counts to save
+ * Args:     from - the HMM structure from which to save the parameter counts
+ *           to   - the HMM structure where to save the parameter counts
  * 
  * Returns:  (void)
  */
 void
-param_counts_save_to_hmm(F4_HMM *hmm, F4_HMM *param_counts)
+param_counts_save_from_to(F4_HMM *from, F4_HMM *to)
 {
   int k;
 
-  for (k = 0; k <= hmm->M; k++) {
-    hmm->tp[k][f4H_ALPHA]    = param_counts->tp[k][f4H_ALPHA];
-    hmm->tp[k][f4H_BETA]     = param_counts->tp[k][f4H_BETA];
-    hmm->tp[k][f4H_DELTA]    = param_counts->tp[k][f4H_DELTA];
-    hmm->tp[k][f4H_EPSILON]  = param_counts->tp[k][f4H_EPSILON];
-    hmm->tp[k][f4H_GAMMA]    = param_counts->tp[k][f4H_GAMMA];
-    hmm->tp[k][f4H_BETAP]    = param_counts->tp[k][f4H_BETAP];
-    hmm->tp[k][f4H_EPSILONP] = param_counts->tp[k][f4H_EPSILONP];
+  for (k = 0; k <= to->M; k++) {
+    to->tp[k][f4H_ALPHA]    = from->tp[k][f4H_ALPHA];
+    to->tp[k][f4H_BETA]     = from->tp[k][f4H_BETA];
+    to->tp[k][f4H_DELTA]    = from->tp[k][f4H_DELTA];
+    to->tp[k][f4H_EPSILON]  = from->tp[k][f4H_EPSILON];
+    to->tp[k][f4H_GAMMA]    = from->tp[k][f4H_GAMMA];
+    to->tp[k][f4H_BETAP]    = from->tp[k][f4H_BETAP];
+    to->tp[k][f4H_EPSILONP] = from->tp[k][f4H_EPSILONP];
   }
 }
 
@@ -731,9 +731,6 @@ f4_calculate_parameters(F4_HMM *hmm, int N, float wt,
  *
  * Notes:    We stop after a certain number of iterations or when the termination condition is met.
  *           Possibly, therefore, the parameters may not be fully converged.
- * 
- * TODOs:    Figure out why some expected counts are negative, which should not happen.
- *           Add the priors to the counts.
  */
 int
 f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri, double **letter_probs, double *background_probs)
@@ -745,7 +742,8 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
 
   double **W_bar = NULL, **Y_bar = NULL, **Z_bar = NULL; // backward
   double **X = NULL, **Y = NULL, **Z = NULL;             // forward
-  F4_HMM *param_counts = NULL;                           // parameter counts for the HMM
+  F4_HMM *param_counts_new = NULL;                       // current parameter counts for the HMM
+  F4_HMM *param_counts_old = NULL;                       // previous parameter counts for the HMM
   double v;                                              // variable to accumulate the sum of weights
 
   ESL_DSQ *dsq;     // sequence without gaps
@@ -761,12 +759,19 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
   if ((status = bw_build(M, N, &W_bar, &Y_bar, &Z_bar, &X, &Y, &Z)) != eslOK)
     goto ERROR;
 
-  if ((param_counts = f4_hmm_Create(M, msa->abc)) == NULL) {
+  if ((param_counts_new = f4_hmm_Create(M, msa->abc)) == NULL) {
     status = eslEMEM;
     goto ERROR;
   }
 
-  if ((status = estimate_parameters(hmm, pri)) != eslOK) 
+  if ((param_counts_old = f4_hmm_Create(M, msa->abc)) == NULL) {
+    status = eslEMEM;
+    goto ERROR;
+  }
+
+  param_counts_save_from_to(hmm, param_counts_old);
+
+  if ((status = estimate_parameters(param_counts_old, pri)) != eslOK) 
     goto ERROR;
 
   /* Needed to determine termination. */
@@ -776,7 +781,7 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
   do {
 
     /* We aggregate the expected counts over all sequences. */
-    f4_hmm_Zero(param_counts);
+    f4_hmm_Zero(param_counts_new);
 
     for (idx = 0; idx < msa->nseq; idx++) {
 
@@ -787,26 +792,30 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
       dsq = dsqs[idx]; // get the sequence without gaps
       seq_length = seq_lengths[idx];
 
-      /* Forward pass, calculate X, Y, Z and the aggregated v (i.e. sum of w-values) */
+      /* Forward pass, calculate X, Y, Z and the aggregated v (i.e. sum of w-values). */
       v = 0.0;
-      if ((status = f4_fwd(hmm, dsq, tr[idx], msa->abc, X, Y, Z, M, seq_length, letter_probs, background_probs, &v)) != eslOK)
+      if ((status = f4_fwd(param_counts_old, dsq, tr[idx], msa->abc, X, Y, Z, M, seq_length, letter_probs, background_probs, &v)) != eslOK)
         goto ERROR;
       
-      /* Backward pass, calculate W_bar, Y_bar, Z_bar */
-      if ((status = f4_bwd(hmm, dsq, tr[idx], msa->abc, W_bar, Y_bar, Z_bar, M, seq_length, letter_probs, background_probs)) != eslOK)
+      /* Backward pass, calculate W_bar, Y_bar, Z_bar. */
+      if ((status = f4_bwd(param_counts_old, dsq, tr[idx], msa->abc, W_bar, Y_bar, Z_bar, M, seq_length, letter_probs, background_probs)) != eslOK)
         goto ERROR;
 
-      /* Calculate and update parameters in hmm */
-      if ((status = f4_calculate_parameters(hmm, seq_length, wt, W_bar, Y_bar, Z_bar, X, Y, Z, v, letter_probs, param_counts)) != eslOK)
+      /* Calculate and update parameters in new parameter counts. */
+      if ((status = f4_calculate_parameters(param_counts_old, seq_length, wt, W_bar, Y_bar, Z_bar, X, Y, Z, v, letter_probs, param_counts_new)) != eslOK)
         goto ERROR;
     }
 
-    if ((status = estimate_parameters(param_counts, pri)) != eslOK) 
+    /* Save the new estimated parameter counts into the HMM. */
+    param_counts_save_from_to(param_counts_new, hmm);
+
+    /* Turn the parameter counts into probabilities via priors. */
+    if ((status = estimate_parameters(param_counts_new, pri)) != eslOK) 
       goto ERROR;
 
-    /* Determine termination condition. Then save the aggregated parameter counts to the HMM. */
-    termination_condition = determine_termination_condition(hmm, param_counts);
-    param_counts_save_to_hmm(hmm, param_counts);
+    /* Determine termination condition. Then overwrite the old probabilities with the new ones. */
+    termination_condition = determine_termination_condition(param_counts_old, param_counts_new);
+    param_counts_save_from_to(param_counts_new, param_counts_old);
     num_iterations++;
 
     printf("\rIteration %d / %d: %s", num_iterations, f4_BW_MAXITER, termination_condition ? "    converged" : "not converged");
@@ -817,7 +826,8 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
   printf("\nError tolerance: %g, iterations: %d, %s\n", f4_BW_CONVERGE, num_iterations, termination_condition ? "Baum-Welch converged" : "Baum-Welch did not converge");
 
   bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
-  f4_hmm_Destroy(param_counts);
+  f4_hmm_Destroy(param_counts_new);
+  f4_hmm_Destroy(param_counts_old);
   free_sequence_without_gaps(dsqs, seq_lengths, msa->nseq);
   
   return eslOK;
@@ -826,8 +836,11 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
   if (W_bar || Y_bar || Z_bar || X || Y || Z)
     bw_destroy(M, W_bar, Y_bar, Z_bar, X, Y, Z);
 
-  if (param_counts)
-    f4_hmm_Destroy(param_counts);
+  if (param_counts_new)
+    f4_hmm_Destroy(param_counts_new);
+
+  if (param_counts_old)
+    f4_hmm_Destroy(param_counts_old);
 
   if (dsqs || seq_lengths)
     free_sequence_without_gaps(dsqs, seq_lengths, msa->nseq);
