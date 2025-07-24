@@ -667,15 +667,18 @@ f4_calculate_parameters(F4_HMM *hmm, int N, float wt,
       epsilon_i1 -= epsilonp_i1;
     }
     // now we can calculate delta
-    delta = epsilonp_i1 + epsilon_i1 - epsilon;
+    delta = (i < M+1) ? epsilonp_i1 + epsilon_i1 - epsilon : 0.0; // delta_m is arbitrary
     if (delta < 0.0) printf("Warning: Negative delta count at position %d.\n", i);
 
     // expected count of gamma
+    // gamma_m is arbitrary
     gamma = 0.0;
-    for (int j = 1; j <= N; j++) {
-      if (i < M+1) gamma += X[i][j] * W_bar[i+1][j+1];
+    if (i < M+1) {
+      for (int j = 1; j <= N; j++) {
+        gamma += X[i][j] * W_bar[i+1][j+1];
+      }
+      gamma /= v;
     }
-    gamma /= v;
 
     // update the HMM parameters
     param_counts->tp[i-1][f4H_ALPHA]    += alpha    * wt;
