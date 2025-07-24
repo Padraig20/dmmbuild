@@ -403,7 +403,6 @@ letter_probs_count(int profile_length, int seq_length, ESL_DSQ *dsq, float wt, E
  * 
  * Args:     hmm - the f4-HMM model
  *           dsq - the sequence to align
- *           wt - weight for the sequence
  *           tr - the traceback structure (not used in this function)
  *           X, Y, Z - matrices for the forward algorithm (output stored here)
  *           M - length of the profile (number of states)
@@ -422,7 +421,7 @@ letter_probs_count(int profile_length, int seq_length, ESL_DSQ *dsq, float wt, E
  *           array was "shifted" towards the right.
  */
 int
-f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
+f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
        double **X, double **Y, double **Z, int M, int N,
        double **letter_probs, double *background_probs, double *w_sum)
 {
@@ -467,7 +466,7 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
         if (isnan(e_prime)) e_prime = 0.0; // Avoid NaN issues
       }
 
-      w = X[i-1][j-1] + Y[i-1][j] + Z[i][j-1] + wt; // weight is the score
+      w = X[i-1][j-1] + Y[i-1][j] + Z[i][j-1] + 1.0; // score is 1.0
       *w_sum += w;
       
       X[i][j] = S * w;
@@ -486,7 +485,6 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
  * 
  * Args:     hmm - the f4-HMM model
  *           dsq - the sequence to align
- *           wt - weight for the sequence
  *           tr - the traceback structure (not used in this function)
  *           W_bar, Y_bar, Z_bar - matrices for the backward algorithm (output stored here)
  *           M - length of the profile (number of states)
@@ -504,7 +502,7 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
  *           array was "shifted" towards the right.
  */
 int
-f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
+f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
        double **W_bar, double **Y_bar, double **Z_bar, int M, int N,
        double **letter_probs, double *background_probs)
 {
@@ -552,7 +550,7 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, float wt, F4_TRACE *tr, ESL_ALPHABET *abc,
 
       x = S * W_bar[i+1][j+1];
       
-      W_bar[i][j] = x + d_prime * Y_bar[i+1][j] + a_prime * Z_bar[i][j+1] + wt; // weight is the score
+      W_bar[i][j] = x + d_prime * Y_bar[i+1][j] + a_prime * Z_bar[i][j+1] + 1.0; // score is 1.0
       Y_bar[i][j] = W_bar[i][j] + e_prime * Y_bar[i+1][j];
       Z_bar[i][j] = W_bar[i][j] + b_prime * Z_bar[i][j+1];
     }
@@ -592,6 +590,7 @@ int determine_termination_condition(F4_HMM *old, F4_HMM *new)
  * 
  * Args:     hmm - the f4-HMM model (parameter transition probabilities are read from here)
  *           N - length of the sequence
+ *           wt - weight for the sequence
  *           tr - the traceback structure (not used in this function)
  *           W_bar, Y_bar, Z_bar - matrices for the forward algorithm
  *           X, Y, Z - matrices for the backward algorithm
@@ -602,7 +601,7 @@ int determine_termination_condition(F4_HMM *old, F4_HMM *new)
  * Returns:  <eslOK> on success.
  */
 int
-f4_calculate_parameters(F4_HMM *hmm, int N, 
+f4_calculate_parameters(F4_HMM *hmm, int N, float wt, 
   double **W_bar, double **Y_bar, double **Z_bar,
   double **X, double **Y, double **Z,
   double v, double **letter_probs, F4_HMM *param_counts)
@@ -680,13 +679,13 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
     gamma /= v;
 
     // update the HMM parameters
-    param_counts->tp[i-1][f4H_ALPHA]    += alpha;
-    param_counts->tp[i-1][f4H_BETA]     += beta;
-    param_counts->tp[i-1][f4H_DELTA]    += delta;
-    param_counts->tp[i-1][f4H_EPSILON]  += epsilon;
-    param_counts->tp[i-1][f4H_GAMMA]    += gamma;
-    param_counts->tp[i-1][f4H_BETAP]    += betap;
-    param_counts->tp[i-1][f4H_EPSILONP] += epsilonp;
+    param_counts->tp[i-1][f4H_ALPHA]    += alpha    * wt;
+    param_counts->tp[i-1][f4H_BETA]     += beta     * wt;
+    param_counts->tp[i-1][f4H_DELTA]    += delta    * wt;
+    param_counts->tp[i-1][f4H_EPSILON]  += epsilon  * wt;
+    param_counts->tp[i-1][f4H_GAMMA]    += gamma    * wt;
+    param_counts->tp[i-1][f4H_BETAP]    += betap    * wt;
+    param_counts->tp[i-1][f4H_EPSILONP] += epsilonp * wt;
   }
   
   return eslOK;
@@ -727,6 +726,7 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
  * Args:     hmm   - counts-based HMM to count <tr> into
  *           msa   - Multiple Sequence Alignment (MSA) structure
  *           tr    - array of all alignments of seq to HMM
+ *           pri   - prior probabilities for the HMM
  *           letter_probs - letter probabilities for the sequence
  *           background_probs - background probabilities for the alphabet
  *           
@@ -740,6 +740,9 @@ f4_calculate_parameters(F4_HMM *hmm, int N,
  *
  * Notes:    We stop after a certain number of iterations or when the termination condition is met.
  *           Possibly, therefore, the parameters may not be fully converged.
+ * 
+ * TODOs:    Figure out why some expected counts are negative, which should not happen.
+ *           Add the priors to the counts.
  */
 int
 f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri, double **letter_probs, double *background_probs)
@@ -792,15 +795,15 @@ f4_trace_Estimate(F4_HMM *hmm, ESL_MSA *msa, F4_TRACE **tr, const F4_PRIOR *pri,
 
       /* Forward pass, calculate X, Y, Z and the aggregated v (i.e. sum of w-values) */
       v = 0.0;
-      if ((status = f4_fwd(hmm, dsq, wt, tr[idx], msa->abc, X, Y, Z, M, seq_length, letter_probs, background_probs, &v)) != eslOK)
+      if ((status = f4_fwd(hmm, dsq, tr[idx], msa->abc, X, Y, Z, M, seq_length, letter_probs, background_probs, &v)) != eslOK)
         goto ERROR;
       
       /* Backward pass, calculate W_bar, Y_bar, Z_bar */
-      if ((status = f4_bwd(hmm, dsq, wt, tr[idx], msa->abc, W_bar, Y_bar, Z_bar, M, seq_length, letter_probs, background_probs)) != eslOK)
+      if ((status = f4_bwd(hmm, dsq, tr[idx], msa->abc, W_bar, Y_bar, Z_bar, M, seq_length, letter_probs, background_probs)) != eslOK)
         goto ERROR;
 
       /* Calculate and update parameters in hmm */
-      if ((status = f4_calculate_parameters(hmm, N, W_bar, Y_bar, Z_bar, X, Y, Z, v, letter_probs, param_counts)) != eslOK)
+      if ((status = f4_calculate_parameters(hmm, N, wt, W_bar, Y_bar, Z_bar, X, Y, Z, v, letter_probs, param_counts)) != eslOK)
         goto ERROR;
     }
 
