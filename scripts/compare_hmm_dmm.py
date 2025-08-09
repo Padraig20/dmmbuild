@@ -14,7 +14,7 @@ def parse_profile_negln(path):
     meta = {}
     hmm_start = None
     for i, line in enumerate(lines):
-        if line.startswith("HMM ") or line.startswith("DMM "):
+        if line.startswith("HMM "):
             hmm_start = i
             break
         m = re.match(r"^(\S+)\s+(.*)$", line.rstrip())
@@ -94,7 +94,8 @@ def plot_mean_diff(mean_diff):
     plt.show()
 
 ap = argparse.ArgumentParser(
-    description="Compare transition probabilities between DUMMER and HMMER .hmm profiles (-ln prob scale)."
+    description="Compare transition probabilities between DUMMER and HMMER .hmm profiles (-ln prob scale). \
+        Careful: Make sure you use the transition probabilities, not the parameters."
 )
 ap.add_argument("dummer", help="DUMMER .hmm file")
 ap.add_argument("hmmer", help="HMMER .hmm file")

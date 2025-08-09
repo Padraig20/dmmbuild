@@ -115,13 +115,13 @@ enum f4h_transitions_e {
 
 /* Parameters used for estimating transition probabilities if fig-4 HMM */
 enum f4h_params_e {
-  f4H_ALPHA     = 0,
-  f4H_DELTA     = 1,
-  f4H_GAMMA     = 2,
-  f4H_BETA      = 3,
-  f4H_BETAP     = 4,
-  f4H_EPSILON   = 5,
-  f4H_EPSILONP  = 6
+  f4H_GAMMA     = 0,
+  f4H_ALPHA     = 1,
+  f4H_DELTA     = 2,
+  f4H_BETAP     = 3,
+  f4H_BETA      = 4,
+  f4H_EPSILONP  = 5,
+  f4H_EPSILON   = 6
 };
 #define f4H_NPARAMS 7
 
@@ -384,7 +384,7 @@ extern int f4_Builder      (F4_BUILDER *bld, ESL_MSA *msa, F4_BG *bg, F4_HMM **o
 extern int f4_Builder_MaxLength      (F4_HMM *hmm, double emit_thresh);
 
 /* f4_hmmfile.c */
-extern int f4_hmmfile_WriteASCII(FILE *fp, int format, F4_HMM *hmm);
+extern int f4_hmmfile_WriteASCII(FILE *fp, int format, F4_HMM *hmm, int output_arrows);
 
 /* f4_hmm.c */
 /*      1. The F4_HMM object: allocation, initialization, destruction. */

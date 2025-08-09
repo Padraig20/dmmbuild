@@ -118,6 +118,8 @@ static ESL_OPTIONS options[] = {
   { "--w_length", eslARG_INT,        NULL, NULL, NULL,    NULL,     NULL,    NULL, "window length ",                                        8 },
   { "--maxinsertlen",  eslARG_INT,   NULL, NULL, "n>=5",  NULL,     NULL,    NULL, "pretend all inserts are length <= <n>",   8 },
 
+  { "--output_arrows", eslARG_NONE, FALSE, NULL, NULL, NULL, NULL, NULL, "output arrow probabilities (e.g. M->M, M->I,...) in HMM file", 8 },
+
   /*Expert-only option, hidden from view. Likely to be removed in the future.
     This is an experimental alternative method for weighting sequence counts.
     It produces non-uniform scaling across columns -- columns with higher
@@ -277,7 +279,7 @@ output_header(const ESL_GETOPTS *go, const struct cfg_s *cfg)
 }
 
 static int
-output_result(const struct cfg_s *cfg, char *errbuf, int msaidx, ESL_MSA *msa, F4_HMM *hmm, double entropy)
+output_result(const struct cfg_s *cfg, char *errbuf, int msaidx, ESL_MSA *msa, F4_HMM *hmm, double entropy, int output_arrows)
 {
   int status;
 
@@ -296,7 +298,7 @@ output_result(const struct cfg_s *cfg, char *errbuf, int msaidx, ESL_MSA *msa, F
     }
     return eslOK;
   }
-  if ((status = f4_hmmfile_WriteASCII(cfg->hmmfp, -1, hmm)) != eslOK) ESL_FAIL(status, errbuf, "HMM save failed");
+  if ((status = f4_hmmfile_WriteASCII(cfg->hmmfp, -1, hmm, output_arrows)) != eslOK) ESL_FAIL(status, errbuf, "HMM save failed");
 
 	             /* #   name nseq alen M max_length eff_nseq re/pos description */
   if (cfg->abc->type == eslAMINO) {
@@ -419,7 +421,7 @@ set_msa_name(struct cfg_s *cfg, char *errbuf, ESL_MSA *msa)
  *****************************************************************/
 
 static void
-serial_loop(WORKER_INFO *info, struct cfg_s *cfg, const ESL_GETOPTS *go)
+serial_loop(WORKER_INFO *info, struct cfg_s *cfg, const ESL_GETOPTS *go, int output_arrows)
 {
   F4_BUILDER *bld         = NULL;
   ESL_MSA    *msa         = NULL;
@@ -441,7 +443,7 @@ serial_loop(WORKER_INFO *info, struct cfg_s *cfg, const ESL_GETOPTS *go)
       if ((status = f4_Builder(info->bld, msa, info->bg, &hmm, NULL)) != eslOK) f4_Fail("build failed: %s", bld->errbuf);
 
       entropy = f4_MeanMatchRelativeEntropy(hmm, info->bg);
-      if ((status = output_result(cfg, errmsg, cfg->nali, msa, hmm, entropy))         != eslOK) f4_Fail(errmsg);
+      if ((status = output_result(cfg, errmsg, cfg->nali, msa, hmm, entropy, output_arrows))         != eslOK) f4_Fail(errmsg);
 
       f4_hmm_Destroy(hmm);
       esl_msa_Destroy(msa);
@@ -492,12 +494,13 @@ usual_master(const ESL_GETOPTS *go, struct cfg_s *cfg)
     } 
   else cfg->ofp = stdout;
 
+  int output_arrows = esl_opt_GetBoolean(go, "--output_arrows");
 
   /* Looks like the i/o is set up successfully...
    * Initial output to the user
    */
   output_header(go, cfg);                                  /* cheery output header                                */
-  output_result(cfg, NULL, 0, NULL, NULL, 0.0);	   /* tabular results header (with no args, special-case) */
+  output_result(cfg, NULL, 0, NULL, NULL, 0.0, output_arrows);	   /* tabular results header (with no args, special-case) */
 
   infocnt = (ncpus == 0) ? 1 : ncpus;
   ESL_ALLOC(info, (ptrdiff_t) sizeof(*info) * infocnt);
@@ -520,7 +523,7 @@ usual_master(const ESL_GETOPTS *go, struct cfg_s *cfg)
       if ( info[i].bld->w_beta < 0 || info[i].bld->w_beta > 1  ) esl_fatal("Invalid window-length beta value\n");
   }
 
-  serial_loop(info, cfg, go);
+  serial_loop(info, cfg, go, output_arrows);
 
   for (i = 0; i < infocnt; ++i)
   {

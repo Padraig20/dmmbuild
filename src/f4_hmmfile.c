@@ -104,6 +104,7 @@ printprob(FILE *fp, int fieldwidth, float p)
  * Args:      fp     - open stream for writing
  *            format - -1 for default format, or a 3.x format code like <f4_HMMFILE_3a>
  *            hmm    - HMM to save
+ *            output_arrows - if true, output the arrow probabilities
  *
  * Returns:   <eslOK> on success.
  *
@@ -111,7 +112,7 @@ printprob(FILE *fp, int fieldwidth, float p)
  *            <eslEWRITE> on write error.
  */
 int
-f4_hmmfile_WriteASCII(FILE *fp, int format, F4_HMM *hmm)
+f4_hmmfile_WriteASCII(FILE *fp, int format, F4_HMM *hmm, int output_arrows)
 {
   int k, x;
   int status;
@@ -165,12 +166,17 @@ f4_hmmfile_WriteASCII(FILE *fp, int format, F4_HMM *hmm)
     }
   }
 
-  if (fprintf(fp, "DMM     ")                                         < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
+  if (fprintf(fp, "HMM     ")                                         < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
   for (x = 0; x < hmm->abc->K; x++) 
     { if (fprintf(fp, "     %c   ", hmm->abc->sym[x])                 < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed"); }
   if (fputc('\n', fp)                                                 < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
-  if (fprintf(fp, "        %8s %8s %8s %8s %8s %8s %8s %8s %8s\n",
+  if (output_arrows) {
+    if (fprintf(fp, "        %8s %8s %8s %8s %8s %8s %8s %8s %8s\n",
         "m->m", "m->i", "m->d", "i->m", "i->i", "i->d", "d->m", "d->d", "d->i") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
+  } else {
+    if (fprintf(fp, "        %8s %8s %8s %8s %8s %8s %8s\n",
+        "gamma", "alpha", "delta", "1-beta", "beta", "1-epsilon", "epsilon") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
+  }
   if (hmm->flags & f4H_COMPO) {
     if (fprintf(fp, "  COMPO ") < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
     for (x = 0; x < hmm->abc->K; x++) 
@@ -185,8 +191,15 @@ f4_hmmfile_WriteASCII(FILE *fp, int format, F4_HMM *hmm)
   if (fputc('\n', fp)       < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
 
   if (fputs("        ", fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
-  for (x = 0; x < f4H_NTRANSITIONS; x++) 
-    { if ( (status = printprob(fp, 8, hmm->t[0][x])) != eslOK) return status; }    
+  if (output_arrows) {
+    for (x = 0; x < f4H_NTRANSITIONS; x++) { 
+      if ( (status = printprob(fp, 8, hmm->t[0][x])) != eslOK) return status;
+    }
+  } else {
+    for (x = 0; x < f4H_NPARAMS; x++) { 
+      if ( (status = printprob(fp, 8, hmm->tp[0][x])) != eslOK) return status;
+    }
+  }
   if (fputc('\n', fp)       < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
   for (k = 1; k <= hmm->M; k++) {
     /* Line 1: k; match emissions; optional map, RF, MM, CS */
@@ -219,8 +232,15 @@ f4_hmmfile_WriteASCII(FILE *fp, int format, F4_HMM *hmm)
     { if ( (status = printprob(fp, 8, hmm->ins[k][x])) != eslOK) return status; }
     /* Line 3:   transitions */
     if (fputs("\n        ", fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
-    for (x = 0; x < f4H_NTRANSITIONS; x++)
-    { if ( (status = printprob(fp, 8, hmm->t[k][x])) != eslOK) return status; }
+    if (output_arrows) {
+      for (x = 0; x < f4H_NTRANSITIONS; x++) {
+        if ( (status = printprob(fp, 8, hmm->t[k][x])) != eslOK) return status;
+      }
+    } else {
+      for (x = 0; x < f4H_NPARAMS; x++) {
+        if ( (status = printprob(fp, 8, hmm->tp[k][x])) != eslOK) return status;
+      }
+    }
     if (fputc('\n', fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
   }
   if (fputs("//\n", fp) < 0) ESL_EXCEPTION_SYS(eslEWRITE, "hmm write failed");
