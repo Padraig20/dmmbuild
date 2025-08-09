@@ -433,32 +433,28 @@ f4_fwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
   int letter;
 
   for (int i = 1; i <= M+1; i++) {
+
+    alpha_prob    = hmm->tp[i-1][f4H_ALPHA];
+    beta_prob     = hmm->tp[i-1][f4H_BETA];
+    delta_prob    = hmm->tp[i-1][f4H_DELTA];
+    epsilon_prob  = hmm->tp[i-1][f4H_EPSILON];
+
+    epsilon_prob1 = (i == M+1) ? 0.0 : hmm->tp[i][f4H_EPSILON];
+
+    a_prime = alpha_prob * (1.0 - beta_prob);
+    b_prime = beta_prob;
+
+    // can use arbitrary values for S_m, d_m, e_m
+    d_prime = (i == M+1) ? 0.0 : delta_prob   * (1 - epsilon_prob1);
+    e_prime = (i == M+1) ? 0.0 : epsilon_prob * (1 - epsilon_prob1) / (1 - epsilon_prob);
+    if (isnan(e_prime)) e_prime = 0.0; // Avoid NaN issues
+
     for (int j = 1; j <= N+1; j++) {
 
       if (j == N+1) letter = 0; // can use arbitrary values for theta_n
       else letter = dsq[j-1];
 
-      alpha_prob   = hmm->tp[i-1][f4H_ALPHA];
-      beta_prob    = hmm->tp[i-1][f4H_BETA];
-      delta_prob   = hmm->tp[i-1][f4H_DELTA];
-      epsilon_prob = hmm->tp[i-1][f4H_EPSILON];
-
-      a_prime = alpha_prob * (1.0 - beta_prob);
-      b_prime = beta_prob;
-
-      if (i == M+1) { // can use arbitrary values for S_m, d_m, e_m
-        S       = 0.0;
-        d_prime = 0.0;
-        e_prime = 0.0;
-      } else {
-        epsilon_prob1 = hmm->tp[i][f4H_EPSILON];
-
-        S = (1 - alpha_prob - delta_prob) * letter_probs[i][letter] / background_probs[letter];
-
-        d_prime = delta_prob   * (1 - epsilon_prob1);
-        e_prime = epsilon_prob * (1 - epsilon_prob1) / (1 - epsilon_prob);
-        if (isnan(e_prime)) e_prime = 0.0; // Avoid NaN issues
-      }
+      S = (i == M+1) ? 0.0 : (1 - alpha_prob - delta_prob) * letter_probs[i][letter] / background_probs[letter];
 
       w = X[i-1][j-1] + Y[i-1][j] + Z[i][j-1] + 1.0; // score is 1.0
       *w_sum += w;
@@ -507,33 +503,28 @@ f4_bwd(F4_HMM *hmm, ESL_DSQ *dsq, F4_TRACE *tr, ESL_ALPHABET *abc,
   int letter;
 
   for (int i = M; i >= 0; i--) {
+
+    alpha_prob   = hmm->tp[i][f4H_ALPHA];
+    beta_prob    = hmm->tp[i][f4H_BETA];
+    delta_prob   = hmm->tp[i][f4H_DELTA];
+    epsilon_prob = hmm->tp[i][f4H_EPSILON];
+
+    epsilon_prob1 = (i == M) ? 0.0 : hmm->tp[i+1][f4H_EPSILON];
+
+    a_prime = alpha_prob * (1.0 - beta_prob);
+    b_prime = beta_prob;
+
+    // can use arbitrary values for S_m, d_m, e_m
+    d_prime = (i == M) ? 0.0 : delta_prob   * (1 - epsilon_prob1);
+    e_prime = (i == M) ? 0.0 : epsilon_prob * (1 - epsilon_prob1) / (1 - epsilon_prob);
+    if (isnan(e_prime)) e_prime = 0.0; // avoid NaN issues
+
     for (int j = N; j >= 0; j--) {
 
       if (j == N) letter = 0; // can use arbitrary values for theta_n
       else letter = dsq[j];
 
-      // calculate probabilities based on transition counts
-      alpha_prob   = hmm->tp[i][f4H_ALPHA];
-      beta_prob    = hmm->tp[i][f4H_BETA];
-      delta_prob   = hmm->tp[i][f4H_DELTA];
-      epsilon_prob = hmm->tp[i][f4H_EPSILON];
-
-      a_prime = alpha_prob * (1.0 - beta_prob);
-      b_prime = beta_prob;
-
-      if (i == M) { // can use arbitrary values for S_m, d_m, e_m
-        S       = 0.0;
-        d_prime = 0.0;
-        e_prime = 0.0;
-      } else {
-        epsilon_prob1 = hmm->tp[i+1][f4H_EPSILON];
-
-        S = (1 - alpha_prob - delta_prob) * letter_probs[i+1][letter] / background_probs[letter];
-
-        d_prime = delta_prob   * (1 - epsilon_prob1);
-        e_prime = epsilon_prob * (1 - epsilon_prob1) / (1 - epsilon_prob);
-        if (isnan(e_prime)) e_prime = 0.0; // avoid NaN issues
-      }
+      S = (i == M) ? 0.0 : (1 - alpha_prob - delta_prob) * letter_probs[i+1][letter] / background_probs[letter];
 
       x = S * W_bar[i+1][j+1];
       
@@ -594,76 +585,63 @@ f4_calculate_parameters(F4_HMM *hmm, int N, float wt,
   double v, double **letter_probs, F4_HMM *param_counts)
 {
   int M = hmm->M;
+  int i, j;
 
   double alpha, beta, delta, epsilon;
   double gamma, betap, epsilonp;
   double epsilonp_i1, epsilon_i1;
 
   // estimate counts for every position
-  for (int i = 1; i <= M+1; i++) {
-    // expected count of (1 - beta)
-    betap = 0.0;
-    for (int j = 1; j <= N+1; j++) {
-      betap += Z[i][j-1] * W_bar[i-1][j-1];
-    }
-    betap /= v;
+  for (i = 1; i <= M+1; i++) {
 
-    // expected count of beta
-    beta = 0.0;
-    for (int j = 1; j <= N+1; j++) {
-      beta += Z[i][j-1] * Z_bar[i-1][j-1];
+    betap    = 0.0;  // expected count of (1 - beta)
+    beta     = 0.0;
+    epsilonp = 0.0;  // expected count of (1 - epsilon)
+    epsilon  = 0.0;
+
+    for (j = 1; j <= N+1; j++) {
+      betap    += Z[i][j-1] * W_bar[i-1][j-1];
+      beta     += Z[i][j-1] * Z_bar[i-1][j-1];
+      epsilonp += Y[i-1][j] * W_bar[i-1][j-1];
+      epsilon  += Y[i-1][j] * Y_bar[i-1][j-1];
     }
-    beta /= v;
-    beta -= betap;
+
+    betap /= v;
+    beta  /= v;
+    beta  -= betap;
     if (beta < -DBL_EPSILON) printf("Warning: Negative beta count at position %d.\n", i);
 
-    // expected count of (1 - epsilon)
-    epsilonp = 0.0;
-    for (int j = 1; j <= N+1; j++) {
-      epsilonp += Y[i-1][j] * W_bar[i-1][j-1];
-    }
     epsilonp /= v;
-
-    // expected count of epsilon
-    epsilon = 0.0;
-    for (int j = 1; j <= N+1; j++) {
-      epsilon += Y[i-1][j] * Y_bar[i-1][j-1];
-    }
-    epsilon /= v;
-    epsilon -= epsilonp;
+    epsilon  /= v;
+    epsilon  -= epsilonp;
     if (epsilon < -DBL_EPSILON) printf("Warning: Negative epsilon count at position %d.\n", i);
 
     // expected count of alpha
     alpha = betap;
 
-    // expected count of delta
-    delta = 0.0;
-    // requires epsilonp_i+1 and epsilon_i+1
-    epsilonp_i1 = 0.0;
-    epsilon_i1  = 0.0;
-    if (i < M+1) { // epsilon_m may be arbitrary, therefore 0 is fine
-      // expected count of epsilonp_i+1
-      for (int j = 1; j <= N+1; j++) {
-        epsilonp_i1 += Y[i][j] * W_bar[i][j-1]; // i++
-      }
-      epsilonp_i1 /= v;
-      // expected count of epsilon_i+1
-      for (int j = 1; j <= N+1; j++) {
-        epsilon_i1 += Y[i][j] * Y_bar[i][j-1]; // i++
-      }
-      epsilon_i1 /= v;
-      epsilon_i1 -= epsilonp_i1;
-    }
-    // now we can calculate delta
-    delta = (i < M+1) ? epsilonp_i1 + epsilon_i1 - epsilon : 0.0; // delta_m is arbitrary
-    if (delta < -DBL_EPSILON) printf("Warning: Negative delta count at position %d. %g + %g - %g = %g\n", i, 
-      epsilonp_i1, epsilon_i1, epsilon, delta);
-
     // expected count of gamma
     // gamma_m is arbitrary
     gamma = 0.0;
-    if (i < M+1) {
-      for (int j = 1; j <= N; j++) {
+
+    // expected count of delta
+    delta = 0.0;
+    // requires epsilonp_i+1 and epsilon_i+1
+    if (i < M+1) { // epsilon_m may be arbitrary, therefore 0 is fine
+      epsilonp_i1 = 0.0;
+      epsilon_i1  = 0.0;
+      for (int j = 1; j <= N+1; j++) {
+        epsilonp_i1 += Y[i][j] * W_bar[i][j-1]; // i++
+        epsilon_i1  += Y[i][j] * Y_bar[i][j-1]; // i++
+      }
+      epsilonp_i1 /= v;
+      epsilon_i1  /= v;
+      epsilon_i1  -= epsilonp_i1;
+      
+      // now we can calculate delta
+      delta = epsilonp_i1 + epsilon_i1 - epsilon;
+      if (delta < -DBL_EPSILON) printf("Warning: Negative delta count at position %d. %g + %g - %g = %g\n", i,
+				       epsilonp_i1, epsilon_i1, epsilon, delta);
+      for (j = 1; j <= N; j++) {
         gamma += X[i][j] * W_bar[i][j];
       }
       gamma /= v;
